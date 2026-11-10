@@ -389,6 +389,25 @@ body.gated .toasts{z-index:101}
 .accform{display:flex;flex-direction:column;gap:6px;max-width:320px}
 .accform .field{width:100%}
 .accform label{font-size:13px;color:var(--muted)}
+.mc{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(68px + env(safe-area-inset-bottom,0px));z-index:85;width:min(440px,calc(100vw - 32px));display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.mc-log{display:flex;flex-direction:column;gap:2px;max-height:min(46vh,360px);overflow-y:auto;font:500 14px/1.35 ui-monospace,Consolas,"Courier New",monospace;scrollbar-width:thin}
+.mc-line{align-self:flex-start;max-width:100%;background:rgba(0,0,0,.6);color:#fff;padding:3px 8px;border-radius:4px;text-shadow:1px 1px 0 #000;overflow-wrap:anywhere;transition:opacity .6s}
+.mc-line b{font-weight:700;color:#e8e8e8}
+.mc-line .adm,.mc-line b.adm{color:#ff6b6b}
+.mc-line.me b{color:var(--gold)}
+.mc-line.sys{color:#a6f0b0}
+.mc-line.fade{opacity:0}
+.mc:not(.open) .mc-line.old{display:none}
+.mc.open{pointer-events:auto}
+.mc.open .mc-log{background:rgba(0,0,0,.35);border-radius:8px;padding:4px}
+.mc.open .mc-line{opacity:1}
+.mc-form{display:flex;gap:6px}
+.mc-form input{flex:1;min-width:0;background:rgba(0,0,0,.8);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:6px;padding:9px 10px;font:500 14px ui-monospace,Consolas,monospace}
+.mc-form input:focus{outline:2px solid var(--gold);outline-offset:1px}
+.mc-btn{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:85;display:flex;align-items:center;gap:7px;padding:9px 14px;border-radius:999px;border:1px solid var(--gold2);background:rgba(6,10,8,.94);color:var(--ink);font:600 14px var(--f-body,inherit);cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+.mc-btn:hover{border-color:var(--gold)}
+.mc-btn kbd{font:600 11px ui-monospace,Consolas,monospace;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--muted)}
+.mc-badge{min-width:18px;padding:0 5px;border-radius:99px;background:var(--red);color:#fff;font-size:11px;line-height:18px;text-align:center}
 .devcode{font:700 22px/1.3 ui-monospace,Consolas,monospace;letter-spacing:2px;color:var(--gold);background:var(--bg2);border:1px dashed var(--gold);border-radius:10px;padding:12px;text-align:center;margin:8px 0;user-select:all;word-break:break-all}
 .lb{display:flex;flex-direction:column;gap:4px}
 .lbrow{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 12px;border-radius:10px;background:var(--bg2);border:1px solid var(--line2);font-variant-numeric:tabular-nums}
@@ -839,6 +858,11 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
   </div>
 </div>
 <div class="toasts" id="toasts"></div>
+<div class="mc" id="mc" hidden>
+  <div class="mc-log" id="mcLog" aria-live="polite"></div>
+  <form class="mc-form" id="mcForm" hidden autocomplete="off"><input id="mcIn" maxlength="200" placeholder="Message pour tous les joueurs… (Échap pour fermer)" aria-label="Message du chat"><button class="btn" type="submit">Envoyer</button></form>
+</div>
+<button class="mc-btn" id="mcBtn" type="button" hidden aria-label="Ouvrir le chat (touche T)">💬 Chat <kbd>T</kbd><span class="mc-badge" id="mcBadge" hidden>0</span></button>
 <div class="annbar" id="annBar" role="alert" hidden>
   <span class="annico" aria-hidden="true">📢</span>
   <div class="anntxt"><small>Annonce de l’admin</small><b id="annTxt"></b></div>
@@ -1304,7 +1328,9 @@ Règles pour toi : sois honnête sur les chiffres du joueur (utilise l'état fou
     // Si ce n'est pas la bonne phrase ou pas le compte admin, Bad répond normalement : rien ne trahit qu'une commande existe.
     if (/^\s*\//.test(q) && LB.loggedIn()){
       out.textContent = '…';
-      ADMIN.tryUnlock(q).then(ok => typeOut(out, ok ? '🔓 Mode admin activé ! Ta console est en bas à gauche.' : answerLocal(q).text));
+      ADMIN.tryUnlock(q).then(ok => typeOut(out, ok ? '🔓 Mode admin activé ! Ta console est en bas à gauche.'
+        : (String(S.pseudo).toLowerCase() === 'ryzer' && LB.devState() !== 'ok') ? '🔒 Les pouvoirs admin ne marchent que sur ton PC verrouillé : va dans Classement → Ton compte → « Verrouiller mon compte sur cet ordinateur », puis réessaie.'
+        : answerLocal(q).text));
       return;
     }
     const loc = answerLocal(q);
@@ -2940,7 +2966,7 @@ const LB = (() => {
   }
 
   // --- Admin et événements en temps réel (les pouvoirs sont vérifiés par le serveur) ---
-  let lastPoll = 0, polling = false;
+  let lastPoll = 0, polling = false, lastSeen = 0;
   const seenEv = new Set();
   async function poll(){
     if (state !== 'ready' || polling || Date.now() - lastPoll < 5000) return;
@@ -2949,6 +2975,7 @@ const LB = (() => {
       const r = await api(`/rest/v1/events?select=id,kind,item,value,message,ends_at&ends_at=gt.${encodeURIComponent(new Date().toISOString())}&order=created_at.asc`, {headers: H()});
       if (r.ok && Array.isArray(r.data)) applyEvents(r.data);
       if (uid){
+        if (Date.now() - lastSeen > 300000){ lastSeen = Date.now(); rest('rpc/seen_ping', {method: 'POST', body: '{}'}); }
         const g = await rest(`gifts?select=id,kind,item,amount,message&to_user=eq.${uid}&order=id.asc`);
         if (g.ok && Array.isArray(g.data) && g.data.length){
           g.data.forEach(applyGift);
@@ -3042,12 +3069,17 @@ const LB = (() => {
     },
     ban: (to, reason) => rest('banned', {method: 'POST', headers: {'Prefer': 'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify({user_id: to, reason: reason || null})}),
     unban: to => rest('banned?user_id=eq.' + to, {method: 'DELETE'}),
+    banNet: (to, why) => rest('rpc/admin_ban_net', {method: 'POST', body: JSON.stringify({target: to, why: why || null})}),
+    mute: (to, minutes) => rest('chat_mutes', {method: 'POST', headers: {'Prefer': 'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify({user_id: to, until: new Date(Date.now() + minutes * 60000).toISOString()})}),
+    unmute: to => rest('chat_mutes?user_id=eq.' + to, {method: 'DELETE'}),
+    delChat: to => rest('chat?user_id=eq.' + to, {method: 'DELETE'}),
+    clearChat: () => rest('chat?id=gt.0', {method: 'DELETE'}),
     bans: async () => {
-      const r = await rest('banned?select=user_id,reason,created_at&order=created_at.desc');
+      const r = await rest('banned?select=user_id,reason,net,created_at&order=created_at.desc');
       if (!r.ok || !Array.isArray(r.data) || !r.data.length) return [];
       const p = await rest('profiles?select=user_id,name&user_id=in.(' + r.data.map(b => b.user_id).join(',') + ')');
       const nm = Object.fromEntries((p.ok && Array.isArray(p.data) ? p.data : []).map(x => [x.user_id, x.name]));
-      return r.data.map(b => ({name: nm[b.user_id] || b.user_id.slice(0, 8), reason: b.reason}));
+      return r.data.map(b => ({name: (nm[b.user_id] || b.user_id.slice(0, 8)) + (b.net ? ' [IP]' : ''), reason: b.reason}));
     },
     gift: (to, kind, item, amount, message) => rest('gifts', {method: 'POST', headers: {'Prefer': 'return=minimal'}, body: JSON.stringify({to_user: to, kind, item: item || null, amount, message: message || null})}),
     event: (kind, value, minutes, message, item) => rest('events', {method: 'POST', headers: {'Prefer': 'return=minimal'}, body: JSON.stringify({kind, value, item: item || null, message: message || null, ends_at: new Date(Date.now() + minutes * 60000).toISOString()})}),
@@ -3081,7 +3113,8 @@ const LB = (() => {
     return '';
   }
   async function onLogin(user, isNew){
-    // compte banni par l'admin : on refuse la connexion
+    // compte banni par l'admin (ou IP / appareil banni) : on refuse la connexion
+    await rest('rpc/seen_ping', {method: 'POST', body: '{}'}); lastSeen = Date.now();
     const bn = await rest('rpc/is_banned', {method: 'POST', body: JSON.stringify({uid: user.id})});
     if (bn.ok && bn.data === true){
       clearSess(); uid = null; render();
@@ -3216,7 +3249,7 @@ const LB = (() => {
     }
     w.hidden = !on;
     document.body.classList.toggle('gated', on);
-    for (const sel of ['.wrap', '#bad', '#aChip', '#admin', 'footer.credit']){ const el = $(sel); if (el) el.inert = on; }
+    for (const sel of ['.wrap', '#bad', '#aChip', '#admin', 'footer.credit', '#mc', '#mcBtn']){ const el = $(sel); if (el) el.inert = on; }
   }
   // --- Verrou par ordinateur : affichage + boutons ---
   function renderDev(){
@@ -3332,7 +3365,115 @@ const LB = (() => {
   $('#lbCat').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; cat = b.dataset.c; $$('#lbCat button').forEach(x => x.setAttribute('aria-pressed', x === b)); refresh(); });
   $('#lbRefresh').onclick = () => { if (state === 'error'){ state = 'off'; init(); return; } sendScore(true); refresh(); };
   document.addEventListener('visibilitychange', () => { if (document.hidden) cloudSave(true, true); });
-  return {init, open: () => { init(); refresh(); render(); }, tick: () => { cloudSave(false); sendScore(false); poll(); }, render, cloudSave: () => cloudSave(true), loggedIn: () => !!uid, uid: () => uid, admin, pushScore: () => { sendScore(true); refresh(); }};
+  return {init, open: () => { init(); refresh(); render(); }, tick: () => { cloudSave(false); sendScore(false); poll(); }, render, cloudSave: () => cloudSave(true), loggedIn: () => !!uid, uid: () => uid, admin, rest, devState: () => devState, pushScore: () => { sendScore(true); refresh(); }};
+})();
+
+/* =================== Chat des joueurs (façon Minecraft) =================== */
+// Les messages apparaissent en bas à droite puis s'effacent ; touche T (ou le bouton 💬) pour écrire.
+// Le serveur impose le vrai pseudo, limite la vitesse, filtre les insultes, et l'admin peut rendre muet / effacer.
+const CHAT = (() => {
+  const wrap = $('#mc'), log = $('#mcLog'), form = $('#mcForm'), inp = $('#mcIn'), btn = $('#mcBtn'), badge = $('#mcBadge');
+  const ids = new Set();
+  let last = 0, open = false, busy = false, on = false, lastFetch = 0, lastFull = 0, unread = 0, lastSend = 0;
+  const fmtT = d => new Date(d).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+  function line(m, fresh){
+    const d = document.createElement('div');
+    d.className = 'mc-line' + (m.sys ? ' sys' : '') + (m.me ? ' me' : '');
+    if (m.created_at) d.title = fmtT(m.created_at);
+    if (m.sys) d.textContent = m.msg;
+    else {
+      if (m.admin){ const a = document.createElement('span'); a.className = 'adm'; a.textContent = '[ADMIN] '; d.appendChild(a); }
+      const b = document.createElement('b'); b.textContent = '<' + m.name + '> '; if (m.admin) b.className = 'adm';
+      d.append(b, document.createTextNode(m.msg));
+    }
+    if (!fresh) d.classList.add('old');
+    else { setTimeout(() => d.classList.add('fade'), 10000); setTimeout(() => d.classList.add('old'), 10700); }
+    log.appendChild(d);
+    while (log.children.length > 80) log.firstChild.remove();
+    if (open) log.scrollTop = log.scrollHeight;
+  }
+  const sys = t => line({sys: true, msg: t}, true);
+  function add(m, fresh){
+    if (ids.has(m.id)) return;
+    ids.add(m.id); if (m.id > last) last = m.id;
+    const mine = m.user_id === LB.uid();
+    line({...m, me: mine}, fresh);
+    if (fresh && !open && !mine){ unread++; badge.textContent = unread > 9 ? '9+' : String(unread); badge.hidden = false; }
+  }
+  async function fetchNew(full){
+    if (busy || !on) return;
+    busy = true;
+    try {
+      const base = 'chat?select=id,user_id,name,msg,admin,created_at', first = !last;
+      const r = await LB.rest(full || first ? base + '&order=id.desc&limit=40' : base + '&id=gt.' + last + '&order=id.asc&limit=50');
+      if (!r.ok || !Array.isArray(r.data)) return;
+      const rows = full || first ? r.data.slice().reverse() : r.data;
+      if (full || first){
+        // on redessine seulement si quelque chose a changé (ex : messages effacés par l'admin)
+        const shown = [...ids].slice(-rows.length).join(','), got = rows.map(m => m.id).join(',');
+        if (!first && shown === got) return;
+        const before = new Set(ids);
+        log.textContent = ''; ids.clear();
+        rows.forEach(m => add(m, !first && !before.has(m.id)));
+        if (!rows.length && first) sys('💬 Bienvenue dans le chat ! Appuie sur T pour écrire à tous les joueurs.');
+      } else rows.forEach(m => add(m, true));
+    } finally { busy = false; }
+  }
+  async function send(e){
+    e.preventDefault();
+    const msg = inp.value.replace(/\s+/g, ' ').trim();
+    if (!msg){ closeChat(); return; }
+    // sécurité : une commande (ex : ta phrase secrète) ne part JAMAIS dans le chat
+    if (msg.startsWith('/')){ inp.value = ''; return sys('⚠️ Les messages qui commencent par « / » ne sont pas envoyés dans le chat (écris-les à Bad).'); }
+    if (msg.length > 200) return sys('Message trop long (200 caractères maximum).');
+    if (Date.now() - lastSend < 2000) return sys('Doucement ! Attends 2 secondes entre deux messages.');
+    lastSend = Date.now(); inp.value = '';
+    const r = await LB.rest('chat', {method: 'POST', headers: {'Prefer': 'return=minimal'}, body: JSON.stringify({msg})});
+    if (!r.ok){
+      const er = String(r.error || '');
+      if (/muet/i.test(er)){
+        const m = await LB.rest('chat_mutes?select=until&user_id=eq.' + LB.uid());
+        const u = m.ok && Array.isArray(m.data) && m.data[0];
+        return sys('🔇 L’admin t’a retiré le chat' + (u ? ' jusqu’à ' + fmtT(u.until) : '') + '.');
+      }
+      if (/trop vite/i.test(er)) return sys('Doucement ! Attends un peu avant de réécrire.');
+      if (/banni/i.test(er)) return sys('⛔ Ton compte est banni.');
+      return sys('Message pas envoyé, réessaie.');
+    }
+    lastFetch = Date.now(); fetchNew(false);
+  }
+  function openChat(){
+    if (!on) return;
+    open = true; wrap.classList.add('open'); form.hidden = false;
+    unread = 0; badge.hidden = true;
+    setTimeout(() => { inp.focus(); log.scrollTop = log.scrollHeight; }, 0);
+    fetchNew(false);
+  }
+  function closeChat(){ open = false; wrap.classList.remove('open'); form.hidden = true; if (document.activeElement === inp) inp.blur(); }
+  btn.onclick = () => open ? closeChat() : openChat();
+  form.addEventListener('submit', send);
+  inp.addEventListener('keydown', e => { if (e.key === 'Escape'){ e.preventDefault(); closeChat(); } });
+  document.addEventListener('keydown', e => {
+    if (!on || open || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    const a = document.activeElement;
+    if (a && (/INPUT|TEXTAREA|SELECT/.test(a.tagName) || a.isContentEditable)) return;
+    if (e.key === 't' || e.key === 'T'){ e.preventDefault(); openChat(); }
+  });
+  function tick(){
+    const should = LB.loggedIn();
+    if (should !== on){
+      on = should; btn.hidden = !on; wrap.hidden = !on;
+      if (!on){ closeChat(); log.textContent = ''; ids.clear(); last = 0; unread = 0; badge.hidden = true; }
+      else { lastFull = lastFetch = Date.now(); fetchNew(true); }
+      return;
+    }
+    if (!on || document.hidden) return;
+    const now = Date.now();
+    if (now - lastFull > 20000){ lastFull = lastFetch = now; fetchNew(true); }
+    else if (now - lastFetch > (open ? 2500 : 4000)){ lastFetch = now; fetchNew(false); }
+  }
+  setInterval(tick, 1000);
+  return {open: openChat, close: closeChat};
 })();
 
 /* =================== Personnage personnalisable =================== */
@@ -3476,7 +3617,7 @@ const ADMIN = (() => {
   const box = $('#admin'), log = $('#aLog'), form = $('#aForm'), inp = $('#aIn'), chip = $('#aChip');
   const out = (t, cls) => {
     // refus du serveur = session admin verrouillée ou expirée (3 h) : on explique clairement
-    if (cls === 'err' && /row-level security|42501|permission denied|non connecté/i.test(t)) t = '⛔ Ta session admin est verrouillée ou a expiré (3 h maximum). Réécris ta phrase secrète à Bad pour la rouvrir.';
+    if (cls === 'err' && /row-level security|42501|permission denied|non connecté/i.test(t)) t = '⛔ Ta session admin est verrouillée, a expiré (3 h maximum) ou tu n’es pas sur ton PC verrouillé. Réécris ta phrase secrète à Bad pour la rouvrir.';
     const d = document.createElement('div'); d.className = 'aline ' + (cls || ''); d.textContent = t; log.appendChild(d); while (log.children.length > 120) log.firstChild.remove(); log.scrollTop = log.scrollHeight; };
   const ITEMS = {trefle: 'clover', gains: 'gains', assurance: 'shield', turbo: 'turbo', revenus: 'prod', rumeur: 'rumor', aimant: 'magnet', detecteur: 'mines', roue: 'wheel'};
   const plain = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -3498,6 +3639,13 @@ const ADMIN = (() => {
     '/ban pseudo [raison]             bannir un tricheur',
     '/unban pseudo                    le débannir',
     '/bans                            liste des bannis',
+    '/banip pseudo [raison]           bannir son compte + son IP + son appareil',
+    '/unbanip pseudo                  tout débannir (compte, IP, appareil)',
+    '— Chat —',
+    '/mute pseudo [minutes]           lui retirer le chat (10 min par défaut)',
+    '/unmute pseudo                   lui rendre le chat',
+    '/delchat pseudo                  effacer ses messages du chat',
+    '/clearchat                       vider tout le chat',
     '/joueurs                         liste des joueurs',
     '— Pour tout le monde, en direct —',
     '/annonce texte                   message en grand pour tous (10 s)',
@@ -3515,7 +3663,7 @@ const ADMIN = (() => {
     '/secret nouvelle phrase          changer ta phrase secrète',
     '/logs                            journal de sécurité (essais, actions)',
     '/lock                            verrouiller la console (bouton 🔒)',
-    'Sécurité : tes pouvoirs durent 3 h après ta phrase secrète ; 5 essais ratés = bloqué 15 min.',
+    'Sécurité : tes pouvoirs ne marchent QUE sur ton PC verrouillé, 3 h après ta phrase secrète ; 5 essais ratés = bloqué 15 min.',
     'Montants : 500, 20k, 3M, 2Md. Pseudo avec espaces : entre "guillemets".',
   ];
   function tokens(s){ const r = []; s.replace(/"([^"]*)"|(\S+)/g, (_, q, w) => { r.push(q !== undefined ? q : w); return ''; }); return r; }
@@ -3534,7 +3682,31 @@ const ADMIN = (() => {
           const p = t[1] && await A.info(t[1]); if (!p) return out('Joueur introuvable.', 'err');
           return out(`${p.name} · fortune ${M(p.fortune)} · ${p.stars} ★ · Gratte-ciel ×${fx(p.sky_best || 0)} · Badi’Tour ${p.tower_best} étages · vu ${new Date(p.updated_at).toLocaleString('fr-FR')}`);
         }
-        case 'ban': case 'unban': {
+        case 'banip': {
+          const who = t[1]; if (!who) return out('Ex : /banip pseudo triche', 'err');
+          const u = await A.find(who); if (!u) return out(`Joueur « ${who} » introuvable.`, 'err');
+          if (u.user_id === LB.uid()) return out('Tu ne peux pas te bannir toi-même 😅', 'err');
+          const r = await A.banNet(u.user_id, t.slice(2).join(' ').slice(0, 140));
+          if (!r.ok || !Array.isArray(r.data)) return out('⛔ Refusé : ' + r.error, 'err');
+          const [ip, dev, shared] = r.data;
+          out(`⛔ ${u.name} est banni : son compte + ${ip} IP + ${dev} appareil(s). Il ne peut plus jouer, même avec un nouveau compte depuis là.`, 'ok');
+          if (shared) out(`ℹ️ ${shared} connexion(s) partagée(s) (wifi du lycée, ta propre connexion…) n’ont pas été bannies, pour ne pas bloquer les autres joueurs.`);
+          if (!ip && !dev) out('ℹ️ Son IP n’est pas encore connue (il ne s’est pas connecté depuis la mise à jour) : elle sera bannie automatiquement dès qu’il essaiera de revenir.');
+          return;
+        }
+        case 'mute': case 'unmute': case 'delchat': {
+          const who = t[1]; if (!who) return out(`Ex : /${cmd} pseudo` + (cmd === 'mute' ? ' 10' : ''), 'err');
+          const u = await A.find(who); if (!u) return out(`Joueur « ${who} » introuvable.`, 'err');
+          if (cmd === 'mute'){
+            const min = Math.min(10080, Math.max(1, parseFloat(t[2]) || 10));
+            const r = await A.mute(u.user_id, min);
+            return r.ok ? out(`🔇 ${u.name} ne peut plus écrire dans le chat pendant ${min} min.`, 'ok') : out('⛔ Refusé : ' + r.error, 'err');
+          }
+          const r = cmd === 'unmute' ? await A.unmute(u.user_id) : await A.delChat(u.user_id);
+          return r.ok ? out(cmd === 'unmute' ? `🔊 ${u.name} peut de nouveau écrire dans le chat.` : `🧹 Messages de ${u.name} effacés du chat.`, 'ok') : out('⛔ Refusé : ' + r.error, 'err');
+        }
+        case 'clearchat': { const r = await A.clearChat(); return r.ok ? out('🧹 Chat vidé pour tout le monde.', 'ok') : out('⛔ Refusé : ' + r.error, 'err'); }
+        case 'ban': case 'unban': case 'unbanip': {
           const who = t[1]; if (!who) return out(cmd === 'ban' ? 'Ex : /ban pseudo triche' : 'Ex : /unban pseudo', 'err');
           const u = await A.find(who); if (!u) return out(`Joueur « ${who} » introuvable.`, 'err');
           if (u.user_id === LB.uid()) return out('Tu ne peux pas te bannir toi-même 😅', 'err');
@@ -3626,6 +3798,9 @@ const ADMIN = (() => {
     ['fer', 'pseudo niveaux', 'fer à cheval'], ['item', 'pseudo objet [nombre]', 'donner un objet'],
     ['boost', 'pseudo|tous objet [minutes]', 'donner un boost'], ['info', 'pseudo', 'voir ses scores'],
     ['ban', 'pseudo [raison]', 'bannir un tricheur'], ['unban', 'pseudo', 'débannir'], ['bans', '', 'liste des bannis'],
+    ['banip', 'pseudo [raison]', 'bannir compte + IP + appareil'], ['unbanip', 'pseudo', 'tout débannir'],
+    ['mute', 'pseudo [minutes]', 'retirer le chat'], ['unmute', 'pseudo', 'rendre le chat'],
+    ['delchat', 'pseudo', 'effacer ses messages'], ['clearchat', '', 'vider tout le chat'],
     ['joueurs', '', 'liste des joueurs'], ['annonce', 'texte', 'message pour tous'],
     ['event', 'argent|casino|dore valeur minutes', 'événement pour tous'], ['happyhour', '[minutes]', 'revenus ×2 + casino ×2'],
     ['pluie', 'montant', 'argent pour chaque joueur connecté'], ['roue', 'tous', 'recharger la roue de tout le monde'],
@@ -3634,7 +3809,7 @@ const ADMIN = (() => {
     ['logs', '', 'journal de sécurité'], ['lock', '', 'verrouiller la console'],
     ['items', '', 'liste des objets'], ['help', '', 'toutes les commandes'],
   ];
-  const PLAYER_CMDS = ['give', 'take', 'set', 'doubler', 'multiplier', 'vider', 'reset', 'livret', 'etoiles', 'fer', 'item', 'boost', 'info', 'ban', 'unban'];
+  const PLAYER_CMDS = ['give', 'take', 'set', 'doubler', 'multiplier', 'vider', 'reset', 'livret', 'etoiles', 'fer', 'item', 'boost', 'info', 'ban', 'unban', 'banip', 'unbanip', 'mute', 'unmute', 'delchat'];
   const sug = $('#aSug'), hint = $('#aHint');
   let names = [], sel = 0, opts = [], hist = [], hi = -1;
   async function loadNames(){ try { names = (await LB.admin.players()).map(p => p.name); } catch (e) {} }
@@ -3966,7 +4141,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261110135409';
+const GAME_BUILD = '20261110162748';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

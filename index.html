@@ -3966,7 +3966,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261110134741';
+const GAME_BUILD = '20261110135409';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;
@@ -3986,16 +3986,36 @@ const GAME_BUILD = '20261110134741';
           location.replace(location.pathname + '?v=' + m[1]);
           return;
         }
+        // la mise à jour est obligatoire : on sauvegarde la partie, puis le jeu se recharge tout seul
+        const go = async () => {
+          save();
+          if (LB.loggedIn()) await Promise.race([LB.cloudSave().catch(() => {}), new Promise(r => setTimeout(r, 3000))]);
+          location.replace(location.pathname + '?v=' + m[1]);
+        };
+        if (tried === m[1]){   // déjà essayé pour cette version : on ne force pas (évite de recharger en boucle)
+          const bar = document.createElement('div'); bar.className = 'updbar';
+          bar.innerHTML = '<span>🆕 Une nouvelle version du jeu est disponible !</span>';
+          const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = 'Mettre à jour';
+          b.onclick = go; bar.appendChild(b); document.body.appendChild(bar);
+          return;
+        }
+        try { sessionStorage.setItem('badinterCasino_autoupd', m[1]); } catch (e) {}
+        if (document.hidden){ go(); return; }
         const bar = document.createElement('div'); bar.className = 'updbar';
-        bar.innerHTML = '<span>🆕 Une nouvelle version du jeu est disponible !</span>';
-        const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = 'Mettre à jour';
-        b.onclick = () => { save(); if (LB.loggedIn()) LB.cloudSave(); setTimeout(() => location.replace(location.pathname + '?v=' + m[1]), 400); };
-        bar.appendChild(b); document.body.appendChild(bar);
+        const sp = document.createElement('span');
+        const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = 'Mettre à jour maintenant';
+        bar.append(sp, b); document.body.appendChild(bar);
+        let left = 20, done = false;
+        const now = () => { if (done) return; done = true; clearInterval(iv); sp.textContent = '🆕 Mise à jour en cours…'; go(); };
+        b.onclick = now;
+        const tickU = () => { if (done) return; sp.textContent = `🆕 Nouvelle version du jeu : mise à jour automatique dans ${left} s (ta partie est sauvegardée).`; if (left-- <= 0) now(); };
+        const iv = setInterval(tickU, 1000); tickU();
       }
     } catch (e) {}
   }
   setTimeout(check, 1200);
-  setInterval(check, 5 * 60 * 1000);
+  setInterval(check, 2 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
 })();
 // Écran d'accueil : se connecter, créer un compte ou jouer sans compte

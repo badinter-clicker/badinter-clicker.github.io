@@ -382,9 +382,14 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 .wlogo span{color:var(--red)}
 .wbox p{margin:0 auto}
 .wbtns{display:flex;flex-direction:column;gap:8px}
+.wbox.gate{text-align:left;max-height:calc(100vh - 32px);overflow:auto}
+.wbox.gate .wlogo,.wbox.gate .credit,.wbox.gate>p{text-align:center}
+.wbox.gate .accform{max-width:none}
+body.gated .toasts{z-index:101}
 .accform{display:flex;flex-direction:column;gap:6px;max-width:320px}
 .accform .field{width:100%}
 .accform label{font-size:13px;color:var(--muted)}
+.devcode{font:700 22px/1.3 ui-monospace,Consolas,monospace;letter-spacing:2px;color:var(--gold);background:var(--bg2);border:1px dashed var(--gold);border-radius:10px;padding:12px;text-align:center;margin:8px 0;user-select:all;word-break:break-all}
 .lb{display:flex;flex-direction:column;gap:4px}
 .lbrow{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 12px;border-radius:10px;background:var(--bg2);border:1px solid var(--line2);font-variant-numeric:tabular-nums}
 .lbrow .rk{font-weight:700;color:var(--muted);text-align:center}
@@ -746,6 +751,17 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
           </form>
           <p class="small">⚠️ Note bien ton mot de passe : on ne peut pas le récupérer s’il est oublié.</p>
         </div>
+        <div id="accBlocked" hidden>
+          <p><b style="color:var(--red)">🔒 Ce compte est verrouillé sur un autre ordinateur.</b></p>
+          <p class="small">Son propriétaire a choisi qu’on ne puisse l’utiliser que depuis son ordinateur. Si c’est ton compte et que tu as changé d’ordinateur ou effacé les données de ton navigateur, entre ton code de secours.</p>
+          <form id="devRecForm" class="accform" autocomplete="off">
+            <label for="devRec">Code de secours</label>
+            <input id="devRec" class="field" maxlength="24" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX">
+            <button class="btn" type="submit">Autoriser cet ordinateur</button>
+            <p class="small" id="devRecMsg"></p>
+          </form>
+          <button class="btn ghost" id="devRecCancel" type="button">Annuler</button>
+        </div>
         <div id="accIn" hidden>
           <p>Connecté en tant que <b id="accWho" style="color:var(--gold)"></b></p>
           <p class="small" id="accSync">☁️ Ta partie est sauvegardée en ligne toutes les 30 secondes.</p>
@@ -760,6 +776,16 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
           </form>
           <button class="btn ghost" id="accLogoutAll" type="button">Déconnecter tous mes appareils</button>
           <p class="small">Si tu penses que quelqu’un connaît ton mot de passe : change-le, puis clique sur « Déconnecter tous mes appareils ». Ne donne jamais ton mot de passe, même à Bad ou à un « admin ».</p>
+          <h3>🖥️ Ordinateur autorisé</h3>
+          <p class="small" id="devState"></p>
+          <div class="btns"><button class="btn" id="devLock" type="button">Verrouiller mon compte sur cet ordinateur</button><button class="btn ghost" id="devUnlock" type="button" hidden>Retirer le verrou</button></div>
+          <p class="small" id="devMsg"></p>
+          <div id="devCodeBox" hidden>
+            <p class="small"><b>📝 Ton code de secours (il ne sera plus jamais affiché) :</b></p>
+            <div class="devcode" id="devCodeTxt"></div>
+            <p class="small">Écris-le sur un papier ou dans ton téléphone. Il sert seulement si tu changes d’ordinateur ou si tu effaces les données de ton navigateur. Ne le donne à personne.</p>
+            <div class="btns"><button class="btn ghost" id="devCopy" type="button">Copier</button><button class="btn" id="devDone" type="button">J’ai noté mon code</button></div>
+          </div>
           <div class="btns"><button class="btn" id="accSaveNow" type="button">Sauvegarder maintenant</button><button class="btn ghost" id="accLogout" type="button">Se déconnecter</button></div>
         </div>
         <h3>Tes scores</h3>
@@ -841,13 +867,14 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
   <div class="wbox">
     <div class="wlogo" id="wTitle">Badinter <span>Casino</span></div>
     <div class="credit" style="text-align:center">Créé par <b>Ryzer</b></div>
-    <p>Le jeu du lycée Badinter : clique, investis, joue au casino, empile ton gratte-ciel et grimpe dans le classement. Tout l’argent est fictif.</p>
-    <div class="wbtns">
+    <p id="wText">Le jeu du lycée Badinter : clique, investis, joue au casino, empile ton gratte-ciel et grimpe dans le classement. Tout l’argent est fictif.</p>
+    <div id="wAcc"></div>
+    <div class="wbtns" id="wBtns">
       <button class="btn" id="wLogin" type="button">Se connecter</button>
       <button class="btn up" id="wSignup" type="button">Créer un compte</button>
       <button class="btn ghost" id="wGuest" type="button">Jouer sans compte</button>
     </div>
-    <p class="small">Avec un compte, ta partie est sauvegardée en ligne et tu la retrouves sur n’importe quel ordinateur.</p>
+    <p class="small" id="wNote">Avec un compte, ta partie est sauvegardée en ligne et tu la retrouves sur n’importe quel ordinateur.</p>
   </div>
 </div>
 
@@ -2859,6 +2886,24 @@ const LB = (() => {
   const slug = n => n.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
   const accMsg = (t, bad) => { const el = $('#accMsg'); el.textContent = t; el.style.color = bad ? 'var(--red)' : 'var(--muted)'; };
   const onClaude = () => /claude|anthropic/i.test(location.hostname);
+  // --- Verrou par ordinateur : une clé aléatoire propre à ce navigateur, envoyée au serveur (qui n'en garde que l'empreinte) ---
+  const DEV_KEY = 'badinterCasino_device';
+  let devPersist = false, devState = '', blocked = null;
+  const DEV = (() => {
+    let d = ''; try { d = localStorage.getItem(DEV_KEY) || ''; } catch (e) {}
+    if (!/^[0-9a-f]{64}$/.test(d)){
+      const b = new Uint8Array(32); crypto.getRandomValues(b);
+      d = Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+      try { localStorage.setItem(DEV_KEY, d); } catch (e) {}
+    }
+    try { devPersist = localStorage.getItem(DEV_KEY) === d; } catch (e) {}
+    return d;
+  })();
+  const sha256 = async s => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))), b => b.toString(16).padStart(2, '0')).join('');
+  const CODE_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const normCode = s => String(s).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const genCode = () => { const b = new Uint8Array(16); crypto.getRandomValues(b); return Array.from(b, x => CODE_ABC[x & 31]).join('').match(/.{4}/g).join('-'); };
+  const devSay = (t, bad) => { const el = $('#devMsg'); el.textContent = t; el.style.color = bad ? 'var(--red)' : 'var(--muted)'; };
   const whyText = () => why === 'claude'
     ? `Les comptes ne marchent pas sur claude.ai. Va sur le site du jeu : ${SITE}`
     : why === 'bloque'
@@ -2891,7 +2936,7 @@ const LB = (() => {
   async function rest(path, opt = {}){
     const t = await token();
     if (!t) return {ok: false, status: 401, error: 'non connecté'};
-    return api('/rest/v1/' + path, {...opt, headers: {...H(t), ...(opt.headers || {})}});
+    return api('/rest/v1/' + path, {...opt, headers: {...H(t), 'x-device': DEV, ...(opt.headers || {})}});
   }
 
   // --- Admin et événements en temps réel (les pouvoirs sont vérifiés par le serveur) ---
@@ -3042,8 +3087,19 @@ const LB = (() => {
       clearSess(); uid = null; render();
       toast('⛔ Compte banni', 'Ce compte a été banni par l’admin.', 'var(--red)');
       accMsg('⛔ Ce compte a été banni par l’admin.', true);
-      return;
+      return false;
     }
+    // compte verrouillé sur un autre ordinateur : on ne charge rien, on propose le code de secours
+    const ds = await rest('rpc/device_status', {method: 'POST', body: '{}'});
+    devState = ds.ok && typeof ds.data === 'string' ? ds.data : '';
+    if (devState === 'bloque'){
+      blocked = user; uid = null;
+      try { localStorage.removeItem(AUTH_KEY); } catch (e) {}
+      render();
+      toast('🔒 Compte verrouillé', 'Ce compte ne peut être utilisé que depuis l’ordinateur de son propriétaire.', 'var(--red)');
+      return false;
+    }
+    blocked = null;
     uid = user.id;
     S.pseudo = (user.user_metadata && user.user_metadata.pseudo) || S.pseudo;
     if (isNew){ S.owner = uid; save(); await cloudSave(true); await sendScore(true); }
@@ -3060,6 +3116,7 @@ const LB = (() => {
     S.owner = uid;
     Bad.say(`Connecté en tant que ${S.pseudo} ✅ Ta partie est sauvegardée en ligne automatiquement.`, true);
     render();
+    return true;
   }
   async function cloudSave(force, keepalive){
     if (state !== 'ready' || !uid) return;
@@ -3109,7 +3166,9 @@ const LB = (() => {
         const r = await api('/auth/v1/token?grant_type=password', {method: 'POST', headers: H(), body: JSON.stringify({email: s + DOMAIN, password: pass})});
         if (!r.ok){ accMsg(r.status === 0 ? whyText() : 'Pseudo ou mot de passe incorrect.', true); return; }
         storeSess(r.data);
-        await onLogin(r.data.user, false);
+        const okLogin = await onLogin(r.data.user, false);
+        $('#accPass').value = '';
+        if (!okLogin) return;
         toast('Connecté', `Content de te revoir ${S.pseudo} !`, 'var(--green)');
       }
       $('#accPass').value = ''; $('#accPass2').value = ''; accMsg('');
@@ -3123,6 +3182,8 @@ const LB = (() => {
     if (p1 !== p2) return say('Les deux mots de passe ne sont pas pareils.', true);
     const w = weakPass(p1, S.pseudo); if (w) return say(w, true);
     const t = await token(); if (!t) return say('Reconnecte-toi d’abord.', true);
+    const a = await rest('rpc/device_allow_change', {method: 'POST', body: '{}'});
+    if (!(a.ok && a.data === true)) return say('⛔ Ton compte est verrouillé sur un autre ordinateur : change ton mot de passe depuis celui-là.', true);
     const r = await api('/auth/v1/user', {method: 'PUT', headers: H(t), body: JSON.stringify({password: p1})});
     if (!r.ok) return say(/same|different/i.test(r.error) ? 'C’est déjà ton mot de passe actuel.' : 'Impossible de changer le mot de passe : ' + r.error, true);
     $('#pwNew').value = ''; $('#pwNew2').value = '';
@@ -3133,16 +3194,92 @@ const LB = (() => {
     await cloudSave(true);
     if (uid) await rest('rpc/admin_lock', {method: 'POST', body: '{}'});   // on reverrouille les pouvoirs admin en partant
     if (sess) await api('/auth/v1/logout' + (everywhere === true ? '?scope=global' : ''), {method: 'POST', headers: H(sess.access_token)});
-    clearSess(); uid = null;
+    clearSess(); uid = null; blocked = null; devState = ''; $('#devCodeBox').hidden = true; $('#devCodeTxt').textContent = '';
     applyData(fresh()); S.tr = {prices: null, pos: {}}; save(); refreshAll();
     toast('Déconnecté', 'Ta partie est gardée en ligne. Reconnecte-toi pour la retrouver.', 'var(--gold)');
     render(); refresh();
   }
+  // --- Sur le vrai site, impossible de jouer sans être connecté : l'écran d'accueil devient l'écran de connexion ---
+  let gateReady = false;
+  function gate(){
+    if (onClaude()) return;   // sur claude.ai les comptes ne marchent pas : on garde « Jouer sans compte »
+    const w = $('#welcome'), on = !uid;
+    if (!gateReady){
+      gateReady = true;
+      $('#wAcc').append($('#accOut'), $('#accBlocked'));
+      $('#wBtns').hidden = true;
+      $('#wText').textContent = 'Le jeu du lycée Badinter : clique, investis, joue au casino, empile ton gratte-ciel et grimpe dans le classement. Pour jouer, connecte-toi ou crée un compte (juste un pseudo et un mot de passe).';
+      $('#wNote').textContent = 'Tout l’argent du jeu est fictif.';
+      w.querySelector('.wbox').classList.add('gate');
+      // tant qu'on n'est pas connecté, les raccourcis clavier du jeu ne marchent pas
+      window.addEventListener('keydown', e => { if (document.body.classList.contains('gated') && !(e.target instanceof Element && e.target.closest('#welcome'))) e.stopImmediatePropagation(); }, true);
+    }
+    w.hidden = !on;
+    document.body.classList.toggle('gated', on);
+    for (const sel of ['.wrap', '#bad', '#aChip', '#admin', 'footer.credit']){ const el = $(sel); if (el) el.inert = on; }
+  }
+  // --- Verrou par ordinateur : affichage + boutons ---
+  function renderDev(){
+    const st = $('#devState'), lk = $('#devLock');
+    if (devState === 'ok'){ st.textContent = '🔒 Ton compte est verrouillé sur cet ordinateur (et ce navigateur) : même avec ton mot de passe, personne ne peut l’utiliser ailleurs.'; st.style.color = 'var(--green)'; }
+    else if (devState === 'libre'){ st.textContent = '🔓 Ton compte marche sur n’importe quel ordinateur avec ton mot de passe. Tu peux le verrouiller pour qu’il ne marche plus que sur celui-ci.'; st.style.color = 'var(--muted)'; }
+    else { st.textContent = 'Vérification de l’ordinateur…'; st.style.color = 'var(--muted)'; }
+    if (lk.dataset.armed !== '1') lk.textContent = devState === 'ok' ? 'Générer un nouveau code de secours' : 'Verrouiller mon compte sur cet ordinateur';
+    $('#devUnlock').hidden = devState !== 'ok';
+  }
+  async function devLock(){
+    const b = $('#devLock');
+    if (!devPersist) return devSay('Ton navigateur n’enregistre rien (navigation privée ?) : impossible de verrouiller le compte ici.', true);
+    if (b.dataset.armed !== '1'){
+      b.dataset.armed = '1';
+      b.textContent = devState === 'ok' ? 'Sûr ? L’ancien code de secours ne marchera plus' : 'Sûr ? Ton compte ne marchera plus que sur CET ordinateur';
+      setTimeout(() => { b.dataset.armed = ''; renderDev(); }, 6000);
+      return;
+    }
+    b.dataset.armed = ''; b.disabled = true;
+    try {
+      const code = genCode();
+      const r = await rest('rpc/device_lock', {method: 'POST', body: JSON.stringify({r: await sha256(normCode(code))})});
+      if (!(r.ok && r.data === true)) return devSay('⛔ Verrouillage refusé par le serveur' + (r.error ? ' : ' + r.error : '.'), true);
+      devState = 'ok'; renderDev(); devSay('');
+      $('#devCodeTxt').textContent = code; $('#devCodeBox').hidden = false;
+      toast('🔒 Compte verrouillé sur cet ordinateur', 'Note bien ton code de secours !', 'var(--green)');
+    } finally { b.disabled = false; }
+  }
+  async function devUnlock(){
+    const b = $('#devUnlock');
+    if (b.dataset.armed !== '1'){ b.dataset.armed = '1'; b.textContent = 'Sûr ? Ton compte remarchera sur tous les ordinateurs'; setTimeout(() => { b.dataset.armed = ''; b.textContent = 'Retirer le verrou'; }, 6000); return; }
+    b.dataset.armed = ''; b.textContent = 'Retirer le verrou';
+    const r = await rest('rpc/device_unlock', {method: 'POST', body: '{}'});
+    if (!(r.ok && r.data === true)) return devSay('⛔ Impossible de retirer le verrou' + (r.error ? ' : ' + r.error : '.'), true);
+    devState = 'libre'; $('#devCodeBox').hidden = true; $('#devCodeTxt').textContent = ''; renderDev(); devSay('🔓 Verrou retiré.');
+  }
+  async function devRecover(e){
+    e.preventDefault();
+    const el = $('#devRecMsg'), say = (t, bad) => { el.textContent = t; el.style.color = bad ? 'var(--red)' : 'var(--muted)'; };
+    const c = normCode($('#devRec').value);
+    if (c.length !== 16) return say('Le code de secours a 16 caractères (ex : ABCD-EFGH-JKLM-NPQR).', true);
+    if (!blocked || !sess) return say('Reconnecte-toi d’abord.', true);
+    say('Vérification…');
+    const r = await rest('rpc/device_recover', {method: 'POST', body: JSON.stringify({r: await sha256(c)})});
+    if (!(r.ok && r.data === true)) return say('⛔ Code incorrect (après 5 erreurs, il faut attendre 15 minutes).', true);
+    $('#devRec').value = ''; say('');
+    try { localStorage.setItem(AUTH_KEY, JSON.stringify(sess)); } catch (e2) {}
+    const u = blocked; blocked = null;
+    if (await onLogin(u, false)){
+      toast('🔓 Cet ordinateur est autorisé', 'Ton compte est maintenant verrouillé sur cet ordinateur. Pense à générer un nouveau code de secours.', 'var(--green)');
+      refresh();
+    }
+  }
+  async function devCancel(){
+    if (sess) await api('/auth/v1/logout', {method: 'POST', headers: H(sess.access_token)});
+    clearSess(); blocked = null; uid = null; $('#devRec').value = ''; $('#devRecMsg').textContent = ''; render();
+  }
   function render(){
     const chip = $('#accChip');
     chip.textContent = uid ? '👤 ' + S.pseudo : '👤 Se connecter';
-    $('#accOut').hidden = !!uid; $('#accIn').hidden = !uid;
-    if (uid) $('#accWho').textContent = S.pseudo;
+    $('#accOut').hidden = !!uid || !!blocked; $('#accIn').hidden = !uid; $('#accBlocked').hidden = !blocked || !!uid;
+    if (uid){ $('#accWho').textContent = S.pseudo; renderDev(); }
     const list = $('#lbList');
     if (state === 'loading' || state === 'off') list.innerHTML = '<div class="small">Connexion au classement…</div>';
     else if (state === 'error'){ list.innerHTML = ''; const d = document.createElement('div'); d.className = 'small'; d.textContent = whyText(); list.appendChild(d); }
@@ -3161,6 +3298,7 @@ const LB = (() => {
     $('#lbStatus').textContent = state === 'ready' ? (uid ? `Tu apparais sous le pseudo « ${S.pseudo} ». Tes scores sont envoyés toutes les minutes.` : 'Connecte-toi ou crée un compte pour apparaître dans le classement.') : '';
     $('#lbMine').innerHTML = `<dt>Fortune (solde + livret)</dt><dd>${M(S.pts + S.liv.bal)}</dd><dt>Gratte-ciel</dt><dd>×${fx(S.skyBest)}</dd><dt>Badi’Tour</dt><dd>${S.towerBest} étages</dd><dt>Étoiles</dt><dd>${S.stars} ★</dd>`;
     if (state === 'error' && !uid) accMsg(whyText(), true);
+    gate();
   }
   $('#accMode').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
@@ -3180,6 +3318,16 @@ const LB = (() => {
     toast('🔒 Tous tes appareils sont déconnectés', 'Si quelqu’un utilisait ton compte, il ne peut plus. Change aussi ton mot de passe.', 'var(--green)');
   };
   $('#pwForm').addEventListener('submit', changePass);
+  $('#devLock').onclick = devLock;
+  $('#devUnlock').onclick = devUnlock;
+  $('#devCopy').onclick = () => {
+    const c = $('#devCodeTxt').textContent;
+    try { navigator.clipboard.writeText(c).then(() => toast('Code copié', 'Colle-le dans un endroit sûr (les notes de ton téléphone…).', 'var(--green)'), () => toast('Copie impossible', 'Recopie le code à la main.')); }
+    catch (e) { toast('Copie impossible', 'Recopie le code à la main.'); }
+  };
+  $('#devDone').onclick = () => { $('#devCodeBox').hidden = true; $('#devCodeTxt').textContent = ''; };
+  $('#devRecForm').addEventListener('submit', devRecover);
+  $('#devRecCancel').onclick = devCancel;
   $('#accSaveNow').onclick = async () => { await cloudSave(true); toast('Sauvegardé', 'Ta partie est enregistrée en ligne.', 'var(--green)'); };
   $('#lbCat').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; cat = b.dataset.c; $$('#lbCat button').forEach(x => x.setAttribute('aria-pressed', x === b)); refresh(); });
   $('#lbRefresh').onclick = () => { if (state === 'error'){ state = 'off'; init(); return; } sendScore(true); refresh(); };
@@ -3404,7 +3552,7 @@ const ADMIN = (() => {
         }
         case 'secret': {
           const phrase = secretNorm(t.slice(1).join(' '));
-          if (phrase.length < 6) return out('Ex : /secret ma phrase super secrète (6 caractères minimum). Ensuite, pour ouvrir la console, tu écriras à Bad : /ma phrase super secrète', 'err');
+          if (phrase.length < 12 || !/\s/.test(phrase)) return out('Choisis une phrase de plusieurs mots (12 caractères minimum), que personne ne peut deviner. Ex : /secret ma phrase super secrète. Ensuite, pour ouvrir la console, tu écriras à Bad : /ma phrase super secrète', 'err');
           const ok = await A.setSecret(await sha(phrase));
           return ok ? out(`🔒 Nouvelle phrase secrète enregistrée. Pour ouvrir la console, écris à Bad : /${phrase}   (note-la : elle n’est écrite nulle part, même pas dans le code).`, 'ok') : out('⛔ Refusé par le serveur.', 'err');
         }
@@ -3818,7 +3966,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261110093537';
+const GAME_BUILD = '20261110134741';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;
@@ -3853,6 +4001,7 @@ const GAME_BUILD = '20261110093537';
 // Écran d'accueil : se connecter, créer un compte ou jouer sans compte
 (() => {
   const w = $('#welcome'); let seen = false;
+  if (!/claude|anthropic/i.test(location.hostname)) return;   // sur le vrai site : écran de connexion obligatoire (voir le module des comptes)
   try { seen = sessionStorage.getItem('badinterCasino_welcome') === '1'; } catch (e) {}
   const close = () => { w.hidden = true; try { sessionStorage.setItem('badinterCasino_welcome', '1'); } catch (e) {} };
   const goAcc = m => { close(); $('#nav [data-v="top"]').click(); $(`#accMode [data-m="${m}"]`).click(); setTimeout(() => $('#accName').focus(), 50); };

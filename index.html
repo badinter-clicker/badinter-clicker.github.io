@@ -483,6 +483,7 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
       <div class="bal"><small>Solde</small><b id="pts">0 €</b></div>
       <span class="vip" id="vipTag">VIP Visiteur</span>
       <span class="vip" id="livTag" hidden title="Argent placé sur ton livret">🏦 0 €</span>
+      <span class="vip" id="wfTag" hidden title="Plus tu es riche, plus c’est dur de gagner : fais un rebirth pour repartir avec un bonus">📉 gains 100 %</span>
       <div class="hbtns">
         <button class="hav" id="hav" type="button" aria-label="Mon perso" title="Mon perso"></button>
         <button class="chip" id="accChip" type="button" style="color:var(--gold);border-color:var(--gold2)">👤 Se connecter</button>
@@ -553,7 +554,7 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
           <button class="tab" role="tab" data-tab="shop" aria-selected="true">Boutique de boosts 🍀</button>
           <button class="tab" role="tab" data-tab="inv" aria-selected="false">Revenus auto</button>
           <button class="tab" role="tab" data-tab="upg" aria-selected="false">Améliorations<span class="badge" id="upgBadge" hidden>0</span></button>
-          <button class="tab" role="tab" data-tab="fr" aria-selected="false">Recommencer avec bonus ★</button>
+          <button class="tab" role="tab" data-tab="fr" aria-selected="false">Rebirth ♻️</button>
         </div>
         <div class="pane" data-pane="shop">
           <div class="pane-h"><span>Dépense ton argent en boosts : plus de chance au casino, des gains plus gros, des clics plus forts… Racheter un boost déjà actif rallonge sa durée.</span></div>
@@ -1025,7 +1026,11 @@ function parseAmt(s){
 /* =================== Économie =================== */
 const vipLevel = () => { let l = 0; VIP.forEach(([t], i) => { if (S.casBet >= t) l = i; }); return l; };
 function bMult(id){ let m = 1; for (let i = 0; i < 5; i++) if (upg.has(id + i)) m *= 2; return m; }
-const bonusMult = () => (1 + .04 * S.stars) * (1 + .01 * ach.size) * (1 + .05 * vipLevel());
+const bonusMult = () => frMult() * (1 + .01 * ach.size) * (1 + .05 * vipLevel());
+// Plus tu es riche, plus c'est dur de gagner (pas de maximum, pas de fin du jeu) : gains complets jusqu'à 1 000 Md,
+// puis ils baissent doucement (fortune ×10 → gains ×0,56 ; ×1 000 → ×0,18 ; ×1 million → ×0,03).
+const WF_START = 1e12, WF_K = .25;
+const wealthFactor = () => { const f = S.pts + (S.liv ? S.liv.bal : 0); return !(f > WF_START) ? 1 : Math.pow(WF_START / f, WF_K); };
 function globalMult(){ let m = bonusMult(); for (const id of ['m0','m1','m2','m3','m4']) if (upg.has(id)) m *= 1.25; return m; }
 function baseCps(){ let s = 0; for (const b of B) s += own(b.id) * b.cps * bMult(b.id); return s * globalMult(); }
 const cps = () => baseCps() * (Date.now() < buffs.prod ? 7 : 1) * (boostOn('prod') ? 3 : 1) * (EV.argent || 1);
@@ -1044,7 +1049,13 @@ const rewardUnit = () => Math.max(5, baseCps() * 2, clickBase() * 3);
 const price = (b, n = own(b.id)) => b.cost * 1.15 ** n;
 const priceK = (b, k) => price(b) * (1.15 ** k - 1) / .15;
 function maxK(b){ const p = price(b); if (S.pts < p) return 0; return Math.floor(Math.log(S.pts * .15 / p + 1) / Math.log(1.15)); }
-function earn(x){ S.pts += x; S.run += x; S.all += x; }
+function earn(x, raw){
+  const v = raw ? x : x * wealthFactor();   // raw : cadeaux de l'admin (pas réduits)
+  S.pts += v; S.run += v; S.all += v;
+  if (!isFinite(S.pts)) S.pts = Number.MAX_VALUE;   // sécurité : jamais « infini » (ça casserait la sauvegarde)
+  if (!isFinite(S.all)) S.all = Number.MAX_VALUE;
+  return v;
+}
 
 /* =================== Son & effets =================== */
 let AC = null;
@@ -1097,7 +1108,8 @@ function save(){
 function applyData(d){
   S = Object.assign(fresh(), d); upg = new Set(S.upg); ach = new Set(S.ach);
   // nerf des franchises : les anciennes parties sont recalculées une fois avec la nouvelle formule des étoiles
-  if (!(d && d.starV >= 2)){ S.stars = Math.min(S.stars, starsFor(S.all)); S.starV = 2; }
+  // nouveau système de rebirth : les rebirth et étoiles de tout le monde repartent à zéro (une seule fois)
+  if (!(d && d.frV >= 3)){ S.fr = 0; S.stars = 0; S.frV = 3; S.starV = 2; }
 }
 function load(){ try { const r = localStorage.getItem(KEY); if (r) applyData(JSON.parse(r)); } catch (e) {} }
 
@@ -1204,7 +1216,7 @@ const Bad = (() => {
   const RULES = `Tu es Bad, la mascotte IA du jeu « Badinter Casino » (aussi appelé Badinter Clicker), un jeu web avec de l'ARGENT FICTIF créé par Ryzer, un élève du lycée Badinter. Tu parles à un joueur (souvent un lycéen).
 Style : français, tutoiement, sympa mais surtout CLAIR. Réponds d'abord à la question en une phrase simple, puis si utile 2 à 4 puces commençant par « • ». Utilise les chiffres exacts du joueur. Mots simples, pas de jargon.
 Ce que contient le jeu :
-- Mon casino : on clique sur le bâtiment pour gagner de l'argent, on achète des investissements (revenus automatiques) et des améliorations. Des jetons dorés apparaissent (×7 revenus, gros gain, ou clics ×77). La franchise remet à zéro contre des étoiles (+4 % chacune, 1 étoile à 1 M€ gagnés au total, puis racine cubique).
+- Mon casino : on clique sur le bâtiment pour gagner de l'argent, on achète des investissements (revenus automatiques) et des améliorations. Des jetons dorés apparaissent (×7 revenus, gros gain, ou clics ×77). Le rebirth (franchise) remet à zéro l'argent, le livret, les investissements et les améliorations ; en échange, revenus et clics ×1,1 de plus pour toujours (×1,1 ; ×1,21 ; ×1,33…) et 5 étoiles pour le perso. Le 1er rebirth coûte 1 Md (solde + livret), puis chaque rebirth coûte 10 fois plus. Il n'y a pas de maximum d'argent, mais au-delà de 1 000 Md, plus le joueur est riche, plus ses gains baissent (fortune ×10 → gains ×0,56) : à un moment le rebirth devient obligatoire.
 - Gratte-ciel (jeu de la salle de jeux) : on mise, un étage se balance au bout d'une grue, on appuie sur « Construire » pour le lâcher sur la tour. Chaque étage posé fait monter le multiplicateur (×1,01 ; ×1,03 ; ×1,06 ; ×1,1… ×2 au 13e étage, ×5 au 20e, jusqu'à ×10 au 23e étage). Il n'y a pas de mise maximum, mais plus la mise est grosse, plus les multiplicateurs baissent : ils sont complets jusqu'à la mise normale (1 h de revenus ou 3 % de l'argent du joueur, 100 000 € minimum), puis le bonus diminue (mise ×4 → bonus divisé par 2), sans descendre sous ×2,8 au dernier étage. Le jeu est volontairement dur : le balancement est rapide et il faut viser précisément. On peut « Récupérer » à tout moment. Si l'étage rate la tour ou si la tour devient trop déséquilibrée et penche, elle s'écroule et on perd la mise. Le balancement devient plus fort et plus rapide en montant. Conseil : lâcher quand l'étage passe au milieu, encaisser avant que ça devienne trop dur.
 - Salle de jeux : roulette simplifiée (on choisit un montant et une couleur : rouge ×2, noir ×2, vert ×36 ; 18 rouges, 18 noirs, 1 vert ; 1 fois sur 100, une case de la roue devient dorée juste avant le lancer et la bille tombe forcément dessus : la mise est multipliée par 75), machine à sous avec jackpot progressif (⭐⭐⭐), blackjack (×2, blackjack ×2,5, croupier tire jusqu'à 17), Crash (encaisser avant l'explosion), Mines (5×5), dés (gain = 97 / chance), pile ou face (×1,98), Plinko, ticket à gratter, Plus haut / Plus bas, course de chevaux. Tous ces jeux ont un léger avantage pour le casino (environ 3 à 5 %).
 - Règles anti-abus du casino (pour tous les jeux) : jusqu'à la « mise normale » (la plus grande somme entre 1 h de revenus, 3 % de l'argent du joueur et 100 000 €) le gain est complet ; au-delà le gain est réduit (mise ×4 → gain divisé par 2, mise ×100 → gain divisé par 10). Pas de mise maximum ni de plafond. Même avec une mise énorme, le bonus garde au moins 20 % (au Gratte-ciel, le 23e étage vaut toujours au moins ×2,8). La chance (fer à cheval, trèfle, assurance, gains boostés) compte moins quand la mise dépasse 30 min de revenus. Au Mines, le détecteur de bombe ajuste les multiplicateurs. Avec 1 seule bombe, le détecteur n'est pas utilisé (il la trouverait et il n'y aurait plus de risque, donc plus de gain : seulement ×0,97).
@@ -1309,7 +1321,7 @@ Règles pour toi : sois honnête sur les chiffres du joueur (utilise l'état fou
       const vis = B.slice(0, visibleCount()).map(b => ({b, eff: b.cps * bMult(b.id) / price(b)})).sort((x, y) => y.eff - x.eff)[0];
       return `🏛️ Les investissements (Mon casino › Revenus auto) te rapportent de l’argent chaque seconde, même quand tu joues ailleurs.\n• Tu en as ${totalOwn()}, pour ${M(baseCps())} par seconde.\n• Le plus rentable à acheter maintenant : ${vis.b.icon} ${vis.b.name} (${M(price(vis.b))}).\nLes améliorations doublent leurs revenus.`; }},
     {k:['vip','statut','bronze','platine','diamant'], a:() => { const lv = vipLevel(), nx = VIP[lv + 1]; return `⭐ Ton statut VIP : ${VIP[lv][1]} (+${lv * 5} % de revenus).\n• Il monte avec tout ce que tu mises.\n${nx ? `• Prochain niveau (${nx[1]}) : encore ${M(nx[0] - S.casBet)} à miser.` : '• Tu as le niveau maximum !'}`; }},
-    {k:['franchise','etoile','etoiles','prestige','recommencer','reset','recommencer avec bonus'], a:() => { const g = Math.max(0, starsFor(S.all) - S.stars); return `★ Recommencer avec bonus (franchise) :\n• Ton argent et tes investissements repartent à zéro.\n• En échange, tu gagnes des étoiles : +4 % de revenus chacune, pour toujours.\n• Tu as ${S.stars} étoile${S.stars > 1 ? 's' : ''}. Tu en gagnerais ${g} maintenant.\n${g < 1 ? '• Il faut avoir gagné 10 M€ au total pour la première.' : ''}\n• Chaque étoile demande beaucoup plus d’argent que la précédente.`; }},
+    {k:['franchise','etoile','etoiles','prestige','recommencer','reset','rebirth','recommencer avec bonus'], a:() => { const n = S.fr || 0; return `♻️ Rebirth (onglet Bonus & VIP → Recommencer avec bonus) :\n• Ton argent, ton livret et tes investissements repartent à zéro.\n• En échange : revenus et clics ×1,1 de plus pour toujours (tu es à ×${fx(frMult(), 2)}) + ${FR_STARS} ★ pour ton perso.\n• Ton prochain rebirth (n°${n + 1}) coûte ${M(frCost())}. Chaque rebirth coûte 10 fois plus que le précédent.\n• Plus tu es riche, plus c’est dur de gagner : à un moment, il faut faire un rebirth.`; }},
     {k:['roue','fortune','roue de la fortune','gratuit','bonus'], a:() => S.wheelNext <= Date.now() ? '🎡 La roue de la fortune est disponible ! Va dans « Bonus & VIP » et clique sur « Tourner la roue ». C’est gratuit.' : `🎡 Prochain tour de roue gratuit dans ${fmtTime((S.wheelNext - Date.now()) / 1000)}. Tu peux aussi acheter un « Ticket de roue » dans la Boutique.`},
     {k:['livret','livret a','epargne','economie','economies','mettre de cote','interet','interets','placer','placement','en securite'], w:1.3, a:() => { const L = S.liv; return `🏦 Livret Badinter (onglet « Livret ») :\n• L’argent déposé ne peut pas être perdu au casino.\n• Toutes les 10 min, il rapporte des intérêts : de 1 % jusqu’à 3 % si tu ne retires rien.\n• Retirer remet le taux à 1 %.\n• Sur ton livret : ${M(L.bal)} (taux actuel ${fx(livRate() * 100, 2)} %, intérêts gagnés : ${M(L.earned)}).`; }},
     {k:['banque','pret','fauche','plus d argent','ruine','zero','dette','pauvre'], a:() => S.pts >= 100 ? `🏦 Tu as ${M(S.pts)}, la banque n’aide que sous 100 €.` : S.loanNext > Date.now() ? `🏦 La banque pourra t’aider dans ${fmtTime((S.loanNext - Date.now()) / 1000)}. En attendant : clique sur le casino et fais des mini-jeux.` : '🏦 Va dans « Bonus & VIP » et clique sur « Demander de l’aide » : la banque te dépanne tout de suite.'},
@@ -1442,10 +1454,10 @@ building.addEventListener('click', e => {
   lastClick = now;
   S.maxCombo = Math.max(S.maxCombo, Math.floor(combo));
   const v = clickValue();
-  earn(v); S.clicks++; S.clickPts += v;
+  const got = earn(v); S.clicks++; S.clickPts += got;
   let x = e.clientX, y = e.clientY;
   if (!x && !y){ const r = building.getBoundingClientRect(); x = r.left + r.width / 2; y = r.top + r.height / 2; }
-  floatText(x, y, '+' + M(v));
+  floatText(x, y, '+' + M(got));
   sparks(x, y, Date.now() < buffs.frenzy ? 10 : 5);
   building.classList.remove('pop'); void building.offsetWidth; building.classList.add('pop');
   tone(520 + combo * 8 + rand(-20, 20), .05);
@@ -1706,29 +1718,31 @@ function luckAdjust(staked, won){
   return {won, note};
 }
 
-/* =================== Franchise (prestige) =================== */
+/* =================== Rebirth (franchise) =================== */
+// Chaque rebirth multiplie tes revenus et tes clics par 1,1 de plus (×1,1 ; ×1,21 ; ×1,33…) et donne 5 ★ pour ton perso.
+// Il est de plus en plus cher : 1 Md pour le 1er, puis ×10 à chaque fois (10 Md, 100 Md, 1 000 Md…).
 let frArmed = false;
-// Étoiles = (nombre de zéros au-delà du million)² : 10 M€ → 1, 1 Md → 9, 1 000 Md → 36, 1 million de Md → 81…
-// Même si un joueur gagne des sommes énormes, il ne gagne que quelques étoiles de plus (avant : racine cubique, ça explosait).
-const starsFor = all => all < 1e7 ? 0 : Math.floor((Math.log10(all) - 6) ** 2);
-const allForStars = n => 10 ** (6 + Math.sqrt(n));
+const FR_STARS = 5;
+// (fonctions « function » : utilisables partout dès le chargement)
+function frMult(n){ return 1.1 ** (n == null ? (S.fr || 0) : n); }
+function frCost(n){ return 1e9 * 10 ** (n == null ? (S.fr || 0) : n); }
 function renderFr(){
-  const gain = Math.max(0, starsFor(S.all) - S.stars), next = allForStars(S.stars + gain + 1) - S.all;
+  const n = S.fr || 0, cost = frCost(), have = S.pts + S.liv.bal, ok = have >= cost;
   $('#frPane').innerHTML = `
-    <div><h2>${S.stars} étoile${S.stars > 1 ? 's' : ''} ★</h2><p>Bonus actuel : <b style="color:var(--gold)">+${S.stars * 4} %</b> sur tous tes revenus et tes clics.</p></div>
-    <p>Ouvrir une franchise vend ton casino actuel : ton argent, ton livret, tes investissements et tes améliorations repartent à zéro. En échange tu gagnes des <b>étoiles</b>, chacune donne <b>+4 %</b> pour toujours. Tes succès et ton statut VIP restent.</p>
-    <p>Si tu ouvres une franchise maintenant : <b style="color:var(--gold)">+${gain} étoile${gain > 1 ? 's' : ''}</b>.<br><span class="small">Prochaine étoile dans ${M(Math.max(0, next))} gagnés (clics, revenus et mini-jeux ; les gains de casino ne comptent pas).</span></p>
-    <div class="btns"><button class="btn ${frArmed ? 'down' : ''}" id="frBtn" type="button" ${gain < 1 ? 'disabled' : ''}>${gain < 1 ? 'Il faut avoir gagné 10 M€ au total' : frArmed ? 'Sûr ? Clique encore pour confirmer' : 'Ouvrir une franchise ★'}</button>
+    <div><h2>Rebirth ${n} ♻️</h2><p>Bonus actuel : <b style="color:var(--gold)">×${fx(frMult(), 2)}</b> sur tous tes revenus et tes clics.</p></div>
+    <p>Faire un rebirth vend ton casino : ton argent, ton livret, tes investissements et tes améliorations repartent à zéro. En échange, tes revenus et tes clics sont multipliés par <b>1,1</b> de plus, pour toujours, et tu gagnes <b>${FR_STARS} ★</b> pour ton perso. Tes succès et ton statut VIP restent.</p>
+    <p>Prochain rebirth (n°${n + 1}) : il faut <b style="color:var(--gold)">${M(cost)}</b> (solde + livret). Tu as ${M(have)}${ok ? ' ✅' : ` · il te manque ${M(cost - have)}`}.<br><span class="small">Après : bonus ×${fx(frMult(n + 1), 2)}. Chaque rebirth coûte 10 fois plus que le précédent. Et plus tu es riche, plus c’est dur de gagner : à un moment, un rebirth devient obligatoire pour avancer.</span></p>
+    <div class="btns"><button class="btn ${frArmed ? 'down' : ''}" id="frBtn" type="button" ${ok ? '' : 'disabled'}>${!ok ? `Il faut ${M(cost)}` : frArmed ? 'Sûr ? Clique encore pour confirmer' : `Faire le rebirth n°${n + 1} ♻️`}</button>
     ${frArmed ? '<button class="btn ghost" id="frCancel" type="button">Annuler</button>' : ''}</div>`;
-  $('#frBtn').onclick = () => { if (!frArmed){ frArmed = true; renderFr(); return; } frArmed = false; doFr(gain); };
+  $('#frBtn').onclick = () => { if (!frArmed){ frArmed = true; renderFr(); return; } frArmed = false; doFr(); };
   const c = $('#frCancel'); if (c) c.onclick = () => { frArmed = false; renderFr(); };
 }
-function doFr(gain){
-  if (gain < 1) return;
-  S.stars += gain; S.fr++; S.pts = 50; S.run = 0; S.own = {}; upg = new Set(); S.liv = {bal: 0, start: 0, min: 0, streak: 0, earned: S.liv.earned, hist: []}; combo = 0; buffs.prod = 0; buffs.frenzy = 0;
+function doFr(){
+  if (S.pts + S.liv.bal < frCost()) return;
+  S.fr = (S.fr || 0) + 1; S.stars += FR_STARS; S.pts = 50; S.run = 0; S.own = {}; upg = new Set(); S.liv = {bal: 0, start: 0, min: 0, streak: 0, earned: S.liv.earned, hist: []}; combo = 0; buffs.prod = 0; buffs.frenzy = 0;
   save(); updateBuildings(true); upgKey = ''; ownedKey = -1; updateUpgrades(); renderFr();
-  toast('Franchise ouverte ★', `+${gain} étoile${gain > 1 ? 's' : ''}. Nouveau casino, nouveau départ !`, 'var(--gold)');
-  Bad.say(`Bravo pour ta franchise ! +${gain} étoile${gain > 1 ? 's' : ''}, tout ira plus vite maintenant 🚀`, true);
+  toast(`Rebirth n°${S.fr} ♻️`, `Revenus et clics ×${fx(frMult(), 2)} pour toujours, +${FR_STARS} ★. Nouveau départ !`, 'var(--gold)');
+  Bad.say(`Bravo pour ton rebirth n°${S.fr} ! Tout rapporte maintenant ×${fx(frMult(), 2)} 🚀`, true);
   [523, 659, 784, 1047].forEach((f, i) => tone(f, .18, 'triangle', .05, i * .1));
 }
 
@@ -1767,6 +1781,8 @@ const CAS = (() => {
     // grosse mise = gain réduit (le Gratte-ciel l'applique déjà à ses multiplicateurs)
     if (g !== 'tower' && g !== 'mines' && won > staked){ const f = casFactor(staked, S.pts + staked); if (f < 1){ won = staked + Math.floor((won - staked) * f); text += ` (grosse mise : ${Math.round(f * 100)} % du gain)`; } }
     const adj = luckAdjust(staked, won); won = adj.won; text += adj.note;
+    // plus tu es riche, plus c'est dur de gagner (aussi au casino)
+    if (won > staked){ const wf = wealthFactor(); if (wf < 1){ won = staked + Math.floor((won - staked) * wf); text += ` (richesse : ${fx(wf * 100, wf < .1 ? 1 : 0)} % du gain)`; } }
     if (won > staked && EV.casino > 1){ const ex = Math.floor((won - staked) * (EV.casino - 1)); won += ex; text += ` ⚡ Admin abuse : +${M(ex)}`; }
     if (won > 0){ S.pts += won; S.casWon += won; S.casBig = Math.max(S.casBig, won); }
     if (won > staked){
@@ -2633,7 +2649,7 @@ const TR = window.TR = (() => {
     const c = COINS.find(x => x.id === id);
     let g = pnl(p, id); const liq = g <= -p.stake;
     if (liq) g = -p.stake;
-    if (g > 0){ const f = casFactor(p.stake, S.pts + p.stake); if (f < 1) g = Math.floor(g * f); }   // grosse mise = gain réduit
+    if (g > 0){ const f = casFactor(p.stake, S.pts + p.stake) * wealthFactor(); if (f < 1) g = Math.floor(g * f); }   // grosse mise = gain réduit
     const back = p.stake + g;
     S.pts += back; S.casWon += back; S.trades++; S.trPnl += g; S.trBest = Math.max(S.trBest, g); if (liq) S.liq++;
     delete pos[id];
@@ -2922,7 +2938,7 @@ function livTick(silent){
   if (!L.start) L.start = now;
   let k = 0, paid = 0;
   while (now - L.start >= LIV_P && k < LIV_MAXOFF){
-    const base = Math.min(L.min, L.bal), r = livRate() * livFactor(base), g = Math.floor(base * r * 100) / 100;
+    const base = Math.min(L.min, L.bal), r = livRate() * livFactor(base) * wealthFactor(), g = Math.floor(base * r * 100) / 100;
     if (g > 0){ L.bal += g; L.earned += g; paid += g; L.hist.unshift({t: L.start + LIV_P, g, r}); L.hist = L.hist.slice(0, 6); }
     L.streak++; L.start += LIV_P; L.min = L.bal; k++;
   }
@@ -3098,7 +3114,7 @@ const LB = (() => {
         S.claimed = S.claimed || [];
         if (!S.claimed.includes(e.id)){
           S.claimed.push(e.id); S.claimed = S.claimed.slice(-50);
-          earn(v); winSound(); sparks(innerWidth / 2, 140, 30);
+          earn(v, true); winSound(); sparks(innerWidth / 2, 140, 30);
           toast('💸 Pluie d’argent de l’admin !', `+${M(v)} pour tous les joueurs !`, 'var(--gold)');
         }
       } else if (e.kind === 'annonce'){
@@ -3134,6 +3150,7 @@ const LB = (() => {
         txt = `${b.icon} ${b.name}${b.dur ? ' pendant ' + n + ' min' : ''}`; } break; }
     }
     if (!txt) return;
+    if (g.message === '#silent'){ updateBuildings(true); updateUpgrades(); updateShop(); renderBoostBar(); return; }   // action discrète de l'admin
     const neg = (a < 0 && g.kind !== 'money_set') || g.kind === 'reset' || (g.kind === 'money_mult' && a < 1);
     toast(neg ? '⚠️ Action de l’admin' : '🎁 Cadeau de l’admin !', txt + (g.message ? ' · ' + g.message : ''), neg ? 'var(--red)' : 'var(--gold)');
     if (!neg){ winSound(); sparks(innerWidth / 2, 140, 20); }
@@ -4038,8 +4055,8 @@ const A = [
   ['g2','Chasseur d’or','Attraper 7 jetons dorés.',()=>S.gold>=7],
   ['g3','Midas','Attraper 27 jetons dorés.',()=>S.gold>=27],
   ['k1','En feu','Atteindre le combo maximum (×2).',()=>S.maxCombo>=50],
-  ['f1','Franchisé','Ouvrir une franchise.',()=>S.fr>=1],
-  ['f2','Chaîne de casinos','Avoir 10 étoiles.',()=>S.stars>=10],
+  ['f1','Franchisé','Faire un rebirth.',()=>S.fr>=1],
+  ['f2','Chaîne de casinos','Faire 3 rebirths.',()=>S.fr>=3],
   ['j1','Faites vos jeux','Jouer une partie au casino.',()=>S.casGames>=1],
   ['j2','Habitué','Jouer 100 parties.',()=>S.casGames>=100],
   ['j3','Pilier du casino','Jouer 1 000 parties.',()=>S.casGames>=1000],
@@ -4169,7 +4186,7 @@ function ui(){
   if (Math.abs(shownPts - S.pts) > Math.abs(S.pts) * .5 + 1 && performance.now() - lastFrameT > 500){ shownPts = S.pts; ptsTxt = M(S.pts); ptsEl.textContent = ptsTxt; }
   $('#vipTag').textContent = 'VIP ' + VIP[vipLevel()][1];
   if (view === 'casino'){
-    $('#cps').textContent = M(cps()); $('#clickv').textContent = M(clickValue());
+    $('#cps').textContent = M(cps() * wealthFactor()); $('#clickv').textContent = M(clickValue() * wealthFactor());
     $('#comboFill').style.width = (combo / 50 * 100) + '%';
     $('#comboTxt').textContent = '×' + fx(comboMult());
     renderBuffs(); updateBuildings(); updateUpgrades(); updateShop();
@@ -4182,6 +4199,7 @@ function ui(){
     renderEvBar();
     livTick();
     const lt = $('#livTag'); lt.hidden = S.liv.bal <= 0; if (!lt.hidden) lt.textContent = '🏦 ' + M(S.liv.bal);
+    { const wf = wealthFactor(), wt = $('#wfTag'); wt.hidden = wf >= .995; if (!wt.hidden) wt.textContent = '📉 gains ' + fx(wf * 100, wf < .1 ? 2 : 0) + ' %'; }
     if (view === 'livret') renderLivret();
     LB.tick();
     if (view === 'stats') renderStats();
@@ -4249,7 +4267,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261112002706';
+const GAME_BUILD = '20261112003254';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

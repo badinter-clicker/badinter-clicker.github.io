@@ -1080,7 +1080,11 @@ function save(){
   if (window.TR) S.tr = TR.dump();
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
 }
-function applyData(d){ S = Object.assign(fresh(), d); upg = new Set(S.upg); ach = new Set(S.ach); }
+function applyData(d){
+  S = Object.assign(fresh(), d); upg = new Set(S.upg); ach = new Set(S.ach);
+  // nerf des franchises : les anciennes parties sont recalculées une fois avec la nouvelle formule des étoiles
+  if (!(d && d.starV >= 2)){ S.stars = Math.min(S.stars, starsFor(S.all)); S.starV = 2; }
+}
 function load(){ try { const r = localStorage.getItem(KEY); if (r) applyData(JSON.parse(r)); } catch (e) {} }
 
 /* =================== Bad (assistant IA) =================== */
@@ -1290,7 +1294,7 @@ Règles pour toi : sois honnête sur les chiffres du joueur (utilise l'état fou
       const vis = B.slice(0, visibleCount()).map(b => ({b, eff: b.cps * bMult(b.id) / price(b)})).sort((x, y) => y.eff - x.eff)[0];
       return `🏛️ Les investissements (Mon casino › Revenus auto) te rapportent de l’argent chaque seconde, même quand tu joues ailleurs.\n• Tu en as ${totalOwn()}, pour ${M(baseCps())} par seconde.\n• Le plus rentable à acheter maintenant : ${vis.b.icon} ${vis.b.name} (${M(price(vis.b))}).\nLes améliorations doublent leurs revenus.`; }},
     {k:['vip','statut','bronze','platine','diamant'], a:() => { const lv = vipLevel(), nx = VIP[lv + 1]; return `⭐ Ton statut VIP : ${VIP[lv][1]} (+${lv * 5} % de revenus).\n• Il monte avec tout ce que tu mises.\n${nx ? `• Prochain niveau (${nx[1]}) : encore ${M(nx[0] - S.casBet)} à miser.` : '• Tu as le niveau maximum !'}`; }},
-    {k:['franchise','etoile','etoiles','prestige','recommencer','reset','recommencer avec bonus'], a:() => { const g = Math.max(0, starsFor(S.all) - S.stars); return `★ Recommencer avec bonus (franchise) :\n• Ton argent et tes investissements repartent à zéro.\n• En échange, tu gagnes des étoiles : +4 % de revenus chacune, pour toujours.\n• Tu as ${S.stars} étoile${S.stars > 1 ? 's' : ''}. Tu en gagnerais ${g} maintenant.\n${g < 1 ? '• Il faut avoir gagné 1 M€ au total pour la première.' : ''}`; }},
+    {k:['franchise','etoile','etoiles','prestige','recommencer','reset','recommencer avec bonus'], a:() => { const g = Math.max(0, starsFor(S.all) - S.stars); return `★ Recommencer avec bonus (franchise) :\n• Ton argent et tes investissements repartent à zéro.\n• En échange, tu gagnes des étoiles : +4 % de revenus chacune, pour toujours.\n• Tu as ${S.stars} étoile${S.stars > 1 ? 's' : ''}. Tu en gagnerais ${g} maintenant.\n${g < 1 ? '• Il faut avoir gagné 10 M€ au total pour la première.' : ''}\n• Chaque étoile demande beaucoup plus d’argent que la précédente.`; }},
     {k:['roue','fortune','roue de la fortune','gratuit','bonus'], a:() => S.wheelNext <= Date.now() ? '🎡 La roue de la fortune est disponible ! Va dans « Bonus & VIP » et clique sur « Tourner la roue ». C’est gratuit.' : `🎡 Prochain tour de roue gratuit dans ${fmtTime((S.wheelNext - Date.now()) / 1000)}. Tu peux aussi acheter un « Ticket de roue » dans la Boutique.`},
     {k:['livret','livret a','epargne','economie','economies','mettre de cote','interet','interets','placer','placement','en securite'], w:1.3, a:() => { const L = S.liv; return `🏦 Livret Badinter (onglet « Livret ») :\n• L’argent déposé ne peut pas être perdu au casino.\n• Toutes les 10 min, il rapporte des intérêts : de 1 % jusqu’à 3 % si tu ne retires rien.\n• Retirer remet le taux à 1 %.\n• Sur ton livret : ${M(L.bal)} (taux actuel ${fx(livRate() * 100, 2)} %, intérêts gagnés : ${M(L.earned)}).`; }},
     {k:['banque','pret','fauche','plus d argent','ruine','zero','dette','pauvre'], a:() => S.pts >= 100 ? `🏦 Tu as ${M(S.pts)}, la banque n’aide que sous 100 €.` : S.loanNext > Date.now() ? `🏦 La banque pourra t’aider dans ${fmtTime((S.loanNext - Date.now()) / 1000)}. En attendant : clique sur le casino et fais des mini-jeux.` : '🏦 Va dans « Bonus & VIP » et clique sur « Demander de l’aide » : la banque te dépanne tout de suite.'},
@@ -1647,14 +1651,17 @@ function luckAdjust(staked, won){
 
 /* =================== Franchise (prestige) =================== */
 let frArmed = false;
-const starsFor = all => Math.floor(Math.cbrt(all / 1e6));
+// Étoiles = (nombre de zéros au-delà du million)² : 10 M€ → 1, 1 Md → 9, 1 000 Md → 36, 1 million de Md → 81…
+// Même si un joueur gagne des sommes énormes, il ne gagne que quelques étoiles de plus (avant : racine cubique, ça explosait).
+const starsFor = all => all < 1e7 ? 0 : Math.floor((Math.log10(all) - 6) ** 2);
+const allForStars = n => 10 ** (6 + Math.sqrt(n));
 function renderFr(){
-  const gain = Math.max(0, starsFor(S.all) - S.stars), next = (S.stars + gain + 1) ** 3 * 1e6 - S.all;
+  const gain = Math.max(0, starsFor(S.all) - S.stars), next = allForStars(S.stars + gain + 1) - S.all;
   $('#frPane').innerHTML = `
     <div><h2>${S.stars} étoile${S.stars > 1 ? 's' : ''} ★</h2><p>Bonus actuel : <b style="color:var(--gold)">+${S.stars * 4} %</b> sur tous tes revenus et tes clics.</p></div>
     <p>Ouvrir une franchise vend ton casino actuel : ton argent, ton livret, tes investissements et tes améliorations repartent à zéro. En échange tu gagnes des <b>étoiles</b>, chacune donne <b>+4 %</b> pour toujours. Tes succès et ton statut VIP restent.</p>
     <p>Si tu ouvres une franchise maintenant : <b style="color:var(--gold)">+${gain} étoile${gain > 1 ? 's' : ''}</b>.<br><span class="small">Prochaine étoile dans ${M(Math.max(0, next))} gagnés (clics, revenus et mini-jeux ; les gains de casino ne comptent pas).</span></p>
-    <div class="btns"><button class="btn ${frArmed ? 'down' : ''}" id="frBtn" type="button" ${gain < 1 ? 'disabled' : ''}>${gain < 1 ? 'Il faut avoir gagné 1 M€ au total' : frArmed ? 'Sûr ? Clique encore pour confirmer' : 'Ouvrir une franchise ★'}</button>
+    <div class="btns"><button class="btn ${frArmed ? 'down' : ''}" id="frBtn" type="button" ${gain < 1 ? 'disabled' : ''}>${gain < 1 ? 'Il faut avoir gagné 10 M€ au total' : frArmed ? 'Sûr ? Clique encore pour confirmer' : 'Ouvrir une franchise ★'}</button>
     ${frArmed ? '<button class="btn ghost" id="frCancel" type="button">Annuler</button>' : ''}</div>`;
   $('#frBtn').onclick = () => { if (!frArmed){ frArmed = true; renderFr(); return; } frArmed = false; doFr(gain); };
   const c = $('#frCancel'); if (c) c.onclick = () => { frArmed = false; renderFr(); };
@@ -3386,7 +3393,7 @@ const LB = (() => {
 const CHAT = (() => {
   const wrap = $('#mc'), log = $('#mcLog'), form = $('#mcForm'), inp = $('#mcIn'), btn = $('#mcBtn'), badge = $('#mcBadge');
   const ids = new Set();
-  let last = 0, open = false, busy = false, on = false, lastFetch = 0, lastFull = 0, unread = 0, lastSend = 0;
+  let last = 0, startId = -1, open = false, busy = false, on = false, lastFetch = 0, lastFull = 0, unread = 0, lastSend = 0;
   const fmtT = d => new Date(d).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
   function line(m, fresh){
     const d = document.createElement('div');
@@ -3416,19 +3423,26 @@ const CHAT = (() => {
     if (busy || !on) return;
     busy = true;
     try {
-      const base = 'chat?select=id,user_id,name,msg,admin,created_at', first = !last;
-      const r = await LB.rest(full || first ? base + '&order=id.desc&limit=40' : base + '&id=gt.' + last + '&order=id.asc&limit=50');
+      // à la connexion : on repart d'un chat vide (seulement les messages envoyés à partir de maintenant)
+      if (startId < 0){
+        const r0 = await LB.rest('chat?select=id&order=id.desc&limit=1');
+        if (!r0.ok || !Array.isArray(r0.data)) return;
+        startId = last = r0.data[0] ? r0.data[0].id : 0;
+        sys('💬 Chat : appuie sur T pour écrire à tous les joueurs. Il repart à zéro à chaque connexion.');
+        return;
+      }
+      const base = 'chat?select=id,user_id,name,msg,admin,created_at&id=gt.' + (full ? startId : last);
+      const r = await LB.rest(full ? base + '&order=id.desc&limit=40' : base + '&order=id.asc&limit=50');
       if (!r.ok || !Array.isArray(r.data)) return;
-      const rows = full || first ? r.data.slice().reverse() : r.data;
-      if (full || first){
+      if (full){
         // on redessine seulement si quelque chose a changé (ex : messages effacés par l'admin)
-        const shown = [...ids].slice(-rows.length).join(','), got = rows.map(m => m.id).join(',');
-        if (!first && shown === got) return;
+        const rows = r.data.slice().reverse();
+        const shown = [...ids].slice(-rows.length || ids.size).join(','), got = rows.map(m => m.id).join(',');
+        if (shown === got) return;
         const before = new Set(ids);
-        log.textContent = ''; ids.clear();
-        rows.forEach(m => add(m, !first && !before.has(m.id)));
-        if (!rows.length && first) sys('💬 Bienvenue dans le chat ! Appuie sur T pour écrire à tous les joueurs.');
-      } else rows.forEach(m => add(m, true));
+        log.querySelectorAll('.mc-line:not(.sys)').forEach(x => x.remove()); ids.clear();
+        rows.forEach(m => add(m, !before.has(m.id)));
+      } else r.data.forEach(m => add(m, true));
     } finally { busy = false; }
   }
   async function send(e){
@@ -3475,8 +3489,9 @@ const CHAT = (() => {
     const should = LB.loggedIn();
     if (should !== on){
       on = should; btn.hidden = !on; wrap.hidden = !on;
-      if (!on){ closeChat(); log.textContent = ''; ids.clear(); last = 0; unread = 0; badge.hidden = true; }
-      else { lastFull = lastFetch = Date.now(); fetchNew(true); }
+      log.textContent = ''; ids.clear(); last = 0; startId = -1; unread = 0; badge.hidden = true;
+      if (!on) closeChat();
+      else { lastFull = lastFetch = Date.now(); fetchNew(false); }
       return;
     }
     if (!on || document.hidden) return;
@@ -4138,7 +4153,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261111232621';
+const GAME_BUILD = '20261111233443';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

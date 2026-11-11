@@ -1194,7 +1194,7 @@ Ce que contient le jeu :
 - Mon casino : on clique sur le bâtiment pour gagner de l'argent, on achète des investissements (revenus automatiques) et des améliorations. Des jetons dorés apparaissent (×7 revenus, gros gain, ou clics ×77). La franchise remet à zéro contre des étoiles (+4 % chacune, 1 étoile à 1 M€ gagnés au total, puis racine cubique).
 - Gratte-ciel (jeu de la salle de jeux) : on mise, un étage se balance au bout d'une grue, on appuie sur « Construire » pour le lâcher sur la tour. Chaque étage posé fait monter le multiplicateur (×1,01 ; ×1,03 ; ×1,06 ; ×1,1… ×2 au 13e étage, ×5 au 20e, jusqu'à ×10 au 23e étage). Il n'y a pas de mise maximum, mais plus la mise est grosse, plus les multiplicateurs baissent : ils sont complets jusqu'à 30 min de revenus (100 000 € minimum), puis le bonus diminue (mise ×4 → bonus divisé par 2, mise ×100 → bonus divisé par 10). Le jeu est volontairement dur : le balancement est rapide et il faut viser précisément. On peut « Récupérer » à tout moment. Si l'étage rate la tour ou si la tour devient trop déséquilibrée et penche, elle s'écroule et on perd la mise. Le balancement devient plus fort et plus rapide en montant. Conseil : lâcher quand l'étage passe au milieu, encaisser avant que ça devienne trop dur.
 - Salle de jeux : roulette simplifiée (on choisit un montant et une couleur : rouge ×2, noir ×2, vert ×36 ; 18 rouges, 18 noirs, 1 vert ; 1 fois sur 100, une case de la roue devient dorée juste avant le lancer et la bille tombe forcément dessus : la mise est multipliée par 75), machine à sous avec jackpot progressif (⭐⭐⭐), blackjack (×2, blackjack ×2,5, croupier tire jusqu'à 17), Crash (encaisser avant l'explosion), Mines (5×5), dés (gain = 97 / chance), pile ou face (×1,94), Plinko, ticket à gratter, Plus haut / Plus bas, course de chevaux. Tous ces jeux ont un léger avantage pour le casino (environ 3 à 5 %).
-- Règles anti-abus du casino (pour tous les jeux) : jusqu'à 30 min de revenus misés (100 000 € minimum) le gain est complet ; au-delà le gain est réduit (mise ×4 → gain divisé par 2, mise ×100 → gain divisé par 10). Pas de mise maximum ni de plafond. La chance (mise rendue par le fer à cheval ou le trèfle, assurance) suit la même règle : plus la mise est grosse, plus la part rendue est petite. Au Mines, le détecteur de bombe ajuste les multiplicateurs.
+- Règles anti-abus du casino (pour tous les jeux) : jusqu'à 30 min de revenus misés (100 000 € minimum) le gain est complet ; au-delà le gain est réduit (mise ×4 → gain divisé par 2, mise ×100 → gain divisé par 10). Pas de mise maximum ni de plafond. Même avec une mise énorme, le bonus garde au moins 5,6 % (au Gratte-ciel, le 23e étage vaut toujours au moins ×1,5). La chance (mise rendue par le fer à cheval ou le trèfle, assurance) suit la même règle : plus la mise est grosse, plus la part rendue est petite. Au Mines, le détecteur de bombe ajuste les multiplicateurs.
 - BadCoin : on parie que la cote d'une crypto fictive (BadCoin, LycéeCoin, CantineToken) monte ou descend, avec un levier jusqu'à ×25, encaissement auto (take profit) et coupure auto (stop loss). Frais 1 %. Liquidation si la perte atteint la mise. La courbe est verte si le joueur gagne, rouge s'il perd. Le cours est aléatoire : personne ne peut prévoir.
 - Mini-jeux d'adresse qui rapportent sans risque : Badi'Tour (empiler des étages), Pluie de billets, Réflexe du croupier.
 - Boutique de boosts (onglet de Mon casino) : Trèfle à 4 feuilles (3 min, 30 % de chances que la mise soit rendue en cas de perte), Gains boostés (+50 % sur les gains, 2 min), Assurance (moitié de la perte rendue, 2 min), Rumeur sur le BadCoin (le cours tend à monter 45 s), Clics turbo (×5, 1 min), Revenus ×3 (2 min), Aimant à jetons dorés, Détecteur de mines, Ticket de roue. Le Fer à cheval est permanent : +2 % de chances par niveau (max 10) que la mise soit rendue en cas de perte. Les prix augmentent avec la richesse du joueur. Les investissements (revenus automatiques) sont dans l'onglet « Revenus auto ».
@@ -1642,7 +1642,9 @@ function renderEvBar(){
 // Grosse mise = gain réduit (tous les jeux) : gain complet jusqu'à la « mise normale » (30 min de revenus, 100 000 € minimum),
 // au-delà le gain baisse (mise ×4 → gain ÷2, mise ×100 → gain ÷10). Tout miser ne fait donc plus exploser la fortune.
 const casRef = () => Math.max(1e5, Math.floor(baseCps() * 1800));
-const casFactor = v => !v || v <= casRef() ? 1 : Math.sqrt(casRef() / v);
+// Minimum : même avec une mise énorme, le bonus garde 5,6 % (au Gratte-ciel, le 23e étage vaut toujours au moins ×1,5).
+const CAS_MIN = .5 / 9;
+const casFactor = v => !v || v <= casRef() ? 1 : Math.max(CAS_MIN, Math.sqrt(casRef() / v));
 // Effet des boosts sur un résultat de casino. Pas de plafond : plus la mise est grosse, moins la chance compte
 // (même règle que les gains : la part rendue suit casFactor).
 function luckAdjust(staked, won){
@@ -1699,7 +1701,7 @@ const CAS = (() => {
   const bet = () => { const v = parseAmt(betIn.value); return isFinite(v) && v >= 1 ? Math.floor(v) : 0; };
   function showBet(){
     const v = bet(), el = $('#betFmt'), f = casFactor(v);
-    el.textContent = v ? `= ${M(v)}` + (v > S.pts ? ' · pas assez !' : f < 1 ? ` · grosse mise : ${Math.round(f * 100)} % du gain` : '') : 'mise invalide';
+    el.textContent = v ? `= ${M(v)}` + (v > S.pts ? ' · pas assez !' : f < 1 ? ` · grosse mise : ${fx(f * 100, f < .1 ? 1 : 0)} % du gain` + (game === 'tower' ? ` (max ×${fx(1 + 9 * f)})` : '') : '') : 'mise invalide';
     el.classList.toggle('bad', !v || v > S.pts);
   }
   const setBet = v => { betIn.value = String(Math.max(1, Math.floor(v))); showBet(); };
@@ -4172,7 +4174,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261111234511';
+const GAME_BUILD = '20261111234618';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

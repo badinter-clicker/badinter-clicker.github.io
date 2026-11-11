@@ -968,17 +968,22 @@ const UBY = Object.fromEntries(U.map(u => [u.id, u]));
 const VIP = [[0,'Visiteur'],[1e3,'Bronze'],[1e5,'Argent'],[1e7,'Or'],[1e9,'Platine'],[1e12,'Diamant'],[1e15,'Légende']];
 
 // Personnage : apparence par défaut, couleurs et catalogue (id, nom, prix en étoiles ★)
-const AV_DEFAULT = {skin:'#f1c27d', hair:'court', hairColor:'#3b2414', eyes:'normal', mouth:'sourire', top:'tshirt', topColor:'#2c56cf', hat:'aucun', acc:'aucun', bg:'vert', fx:'aucun'};
+const AV_DEFAULT = {skin:'#f1c27d', face:'ovale', hair:'court', hairColor:'#3b2414', eyes:'normal', eyeColor:'#5b3a1e', brows:'normal', nose:'petit', mouth:'sourire', beard:'aucune', top:'tshirt', topColor:'#2c56cf', hat:'aucun', acc:'aucun', bg:'vert', fx:'aucun'};
 const AV_PAL = {
   skin: ['#f6d7b8','#f1c27d','#e0ac69','#c68642','#8d5524','#5c3a21','#ffd1dc','#a8e6a1'],
   hairColor: ['#1d1a12','#3b2414','#7a4a1f','#d9a441','#f2e6c9','#c0392b','#2c56cf','#8e44ad','#2fd27a','#ffffff'],
+  eyeColor: ['#5b3a1e','#2e1d12','#3c7dd9','#3a8f5c','#8a6a3a','#6b6f7a','#9b59b6','#d9a441'],
   topColor: ['#2c56cf','#c8283f','#14603f','#1d1a12','#f2c35a','#8e44ad','#ecf0f1','#e67e22'],
 };
 const AV_CATS = [
   {id:'skin', name:'Peau', color:'skin', items:[]},
-  {id:'hair', name:'Cheveux', color:'hairColor', items:[['rase','Rasé',0],['court','Court',0],['meche','Mèche',0],['crete','Crête',0],['boucles','Bouclés',0],['long','Longs',0]]},
-  {id:'eyes', name:'Yeux', items:[['normal','Normaux',0],['joyeux','Joyeux',0],['clin','Clin d’œil',0],['determine','Déterminés',0],['etoiles','Yeux étoiles',2],['soleil','Lunettes de soleil',3]]},
+  {id:'face', name:'Visage', items:[['ovale','Ovale',0],['rond','Rond',0],['carre','Carré',0],['pointu','Fin',0]]},
+  {id:'hair', name:'Cheveux', color:'hairColor', items:[['rase','Rasé',0],['court','Court',0],['meche','Mèche',0],['crete','Crête',0],['boucles','Bouclés',0],['long','Longs',0],['afro','Afro',0],['queue','Queue de cheval',0],['chignon','Chignon',0]]},
+  {id:'eyes', name:'Yeux', color:'eyeColor', items:[['normal','Normaux',0],['joyeux','Joyeux',0],['clin','Clin d’œil',0],['determine','Déterminés',0],['etoiles','Yeux étoiles',2],['soleil','Lunettes de soleil',3]]},
+  {id:'brows', name:'Sourcils', items:[['normal','Normaux',0],['epais','Épais',0],['fins','Fins',0],['fronces','Froncés',0],['leves','Surpris',0]]},
+  {id:'nose', name:'Nez', items:[['petit','Petit',0],['rond','Rond',0],['long','Long',0]]},
   {id:'mouth', name:'Bouche', items:[['sourire','Sourire',0],['grand','Grand sourire',0],['neutre','Neutre',0],['langue','Langue',0],['dentor','Dent en or',2]]},
+  {id:'beard', name:'Barbe', items:[['aucune','Aucune',0],['moustache','Moustache',0],['bouc','Bouc',0],['barbe','Barbe',0]]},
   {id:'top', name:'Tenue', color:'topColor', items:[['tshirt','T-shirt',0],['sweat','Sweat à capuche',0],['maillot','Maillot',0],['croupier','Croupier',3],['smoking','Smoking',4],['vesteor','Veste dorée',6]]},
   {id:'hat', name:'Chapeau', items:[['aucun','Aucun',0],['casquette','Casquette',0],['bonnet','Bonnet',0],['haut','Haut-de-forme',3],['cowboy','Chapeau de cow-boy',3],['couronne','Couronne',6]]},
   {id:'acc', name:'Accessoire', items:[['aucun','Aucun',0],['lunettes','Lunettes',0],['casque','Casque audio',0],['noeud','Nœud papillon',0],['medaille','Médaille d’or',2],['chaine','Chaîne en or',3]]},
@@ -3609,7 +3614,7 @@ function safeAv(raw){
   if (typeof a === 'string'){ try { a = JSON.parse(a); } catch (e) { a = null; } }
   if (!a || typeof a !== 'object') a = {};
   const out = {...AV_DEFAULT}, hex = /^#[0-9a-f]{6}$/i;
-  for (const k of ['skin', 'hairColor', 'topColor']) if (hex.test(a[k] || '')) out[k] = a[k];
+  for (const k of ['skin', 'hairColor', 'topColor', 'eyeColor']) if (hex.test(a[k] || '')) out[k] = a[k];
   for (const c of AV_CATS) if (c.items.length && c.items.some(i => i[0] === a[c.id])) out[c.id] = a[c.id];
   return out;
 }
@@ -3619,23 +3624,34 @@ function shade(hex, k){
 }
 let avN = 0;
 function avatarSVG(raw, size = 120){
-  const a = safeAv(raw), id = 'av' + (++avN), sk = a.skin, sk2 = shade(sk, .85), hc = a.hairColor, tc = a.topColor, tc2 = shade(tc, .78);
-  let defs = '', p = '';
+  // Avatar cartoon (dessin original) : visage en relief, vrais yeux, sourcils, nez, barbe…
+  const a = safeAv(raw), id = 'av' + (++avN), sk = a.skin, sk2 = shade(sk, .86), sk3 = shade(sk, .7), skl = shade(sk, 1.07);
+  const hc = a.hairColor, hc2 = shade(hc, .7), hcl = shade(hc, 1.45), hb = shade(hc, .75), tc = a.topColor, tc2 = shade(tc, .78), ec = a.eyeColor;
+  let defs = `<radialGradient id="${id}f" cx=".42" cy=".36" r=".8"><stop offset="0" stop-color="${skl}"/><stop offset=".72" stop-color="${sk}"/><stop offset="1" stop-color="${sk2}"/></radialGradient>`, p = '';
+  const mir = d => d.replace(/(\d+(?:\.\d+)?) (\d+(?:\.\d+)?)/g, (m, x, y) => (Math.round((120 - x) * 10) / 10) + ' ' + y);
   // fond
   if (a.bg === 'or'){ defs += `<linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3c4"/><stop offset=".5" stop-color="#f2c35a"/><stop offset="1" stop-color="#a87412"/></linearGradient>`; p += `<rect width="120" height="120" fill="url(#${id}g)"/>`; }
   else if (a.bg === 'galaxie'){ defs += `<radialGradient id="${id}g" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#5a2d91"/><stop offset="1" stop-color="#0b0620"/></radialGradient>`; p += `<rect width="120" height="120" fill="url(#${id}g)"/>` + [[18,20],[95,18],[100,62],[14,70],[30,40],[90,40],[70,10],[45,14]].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 1 : 1.8}" fill="#fff" opacity=".85"/>`).join(''); }
   else if (a.bg === 'casino'){ p += `<rect width="120" height="120" fill="#0f5a39"/>` + [['♠',16,28],['♥',100,26],['♦',14,100],['♣',104,98]].map(([s, x, y]) => `<text x="${x}" y="${y}" font-size="16" fill="${s === '♥' || s === '♦' ? '#ef4657' : '#0a1f15'}" opacity=".75" text-anchor="middle">${s}</text>`).join('') + `<circle cx="60" cy="60" r="57" fill="none" stroke="#f2c35a" stroke-width="3" opacity=".7"/>`; }
   else p += `<rect width="120" height="120" fill="${({vert: '#14603f', bleu: '#1d3b6b', rouge: '#6b1d2a', violet: '#3f2a6b'})[a.bg] || '#14603f'}"/>`;
   // effets derrière le perso
-  if (a.fx === 'aura'){ defs += `<radialGradient id="${id}a"><stop offset=".55" stop-color="#ffd34d" stop-opacity=".9"/><stop offset="1" stop-color="#ffd34d" stop-opacity="0"/></radialGradient>`; p += `<circle cx="60" cy="54" r="46" fill="url(#${id}a)"/>`; }
+  if (a.fx === 'aura'){ defs += `<radialGradient id="${id}a"><stop offset=".55" stop-color="#ffd34d" stop-opacity=".9"/><stop offset="1" stop-color="#ffd34d" stop-opacity="0"/></radialGradient>`; p += `<circle cx="60" cy="52" r="48" fill="url(#${id}a)"/>`; }
   if (a.fx === 'flammes') p += `<path d="M8 120 C12 96 20 104 22 84 C30 100 33 92 37 76 C43 94 49 88 51 96 L51 120 Z M112 120 C108 96 100 104 98 84 C90 100 87 92 83 76 C77 94 71 88 69 96 L69 120 Z" fill="#ff7a1a"/><path d="M14 120 C16 104 22 108 24 96 C30 106 34 100 38 90 C42 102 46 98 48 106 L48 120 Z M106 120 C104 104 98 108 96 96 C90 106 86 100 82 90 C78 102 74 98 72 106 L72 120 Z" fill="#ffd34d"/>`;
-  if (a.hair === 'long') p += `<path d="M33 50 C31 28 89 28 87 50 L90 92 C80 96 72 90 72 84 L48 84 C48 90 40 96 30 92 Z" fill="${hc}"/>`;
+  // cheveux derrière la tête
+  p += ({
+    long: `<path d="M33 46 C29 18 91 18 87 46 L91 98 C83 102 75 98 73 92 L47 92 C45 98 37 102 29 98 Z" fill="${hc}"/><path d="M33 46 C31 62 31 80 33 96" fill="none" stroke="${hc2}" stroke-width="2" opacity=".5"/>`,
+    afro: `<path d="M27 46 C21 12 52 2 60 4 C68 2 99 12 93 46 C96 58 88 64 84 60 L36 60 C32 64 24 58 27 46 Z" fill="${hc}"/>`,
+    queue: `<path d="M79 30 C98 30 101 56 91 78 C89 63 87 48 80 40 Z" fill="${hc}"/><path d="M84 36 C94 42 95 58 91 70" fill="none" stroke="${hcl}" stroke-width="1.4" opacity=".3"/>`,
+    chignon: `<circle cx="60" cy="13" r="10" fill="${hc}"/><path d="M53 11 Q60 6 67 11" fill="none" stroke="${hcl}" stroke-width="1.4" opacity=".45"/>`,
+  })[a.hair] || '';
+  // cou (sous la tenue)
+  p += `<path d="M51 64 L69 64 L70 92 L50 92 Z" fill="${sk2}"/><path d="M51 70 Q60 79 69 70 L69 77 Q60 84 51 77 Z" fill="${sk3}" opacity=".4"/>`;
   // tenue
   const sh = 'M16 120 C18 94 36 84 60 84 C84 84 102 94 104 120 Z';
   p += ({
-    tshirt: `<path d="${sh}" fill="${tc}"/><path d="M50 84 Q60 96 70 84" fill="${sk}"/>`,
+    tshirt: `<path d="${sh}" fill="${tc}"/><path d="M50 84 Q60 96 70 84" fill="${sk2}"/><path d="M28 104 C30 98 32 96 34 95 M92 104 C90 98 88 96 86 95" fill="none" stroke="${tc2}" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>`,
     sweat: `<path d="M40 86 C42 74 78 74 80 86 Z" fill="${tc2}"/><path d="${sh}" fill="${tc}"/><path d="M50 84 Q60 94 70 84" fill="${tc2}"/><path d="M55 92 L54 106 M65 92 L66 106" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`,
-    maillot: `<path d="${sh}" fill="${tc}"/><path d="M24 98 C30 90 38 87 44 86 L46 92 C38 94 32 98 28 104 Z M96 98 C90 90 82 87 76 86 L74 92 C82 94 88 98 92 104 Z" fill="#fff" opacity=".85"/><path d="M50 84 Q60 94 70 84" fill="${sk}"/><text x="60" y="115" text-anchor="middle" font-size="16" font-weight="700" font-family="Lexend,sans-serif" fill="#fff">7</text>`,
+    maillot: `<path d="${sh}" fill="${tc}"/><path d="M24 98 C30 90 38 87 44 86 L46 92 C38 94 32 98 28 104 Z M96 98 C90 90 82 87 76 86 L74 92 C82 94 88 98 92 104 Z" fill="#fff" opacity=".85"/><path d="M50 84 Q60 94 70 84" fill="${sk2}"/><text x="60" y="115" text-anchor="middle" font-size="16" font-weight="700" font-family="Lexend,sans-serif" fill="#fff">7</text>`,
     croupier: `<path d="${sh}" fill="#f4f1ea"/><path d="M16 120 C18 96 34 87 50 85 L56 120 Z M104 120 C102 96 86 87 70 85 L64 120 Z" fill="#1d1a12"/><path d="M52 90 L60 94 L52 98 Z M68 90 L60 94 L68 98 Z" fill="#c8283f"/><circle cx="60" cy="94" r="2.5" fill="#a01f33"/>`,
     smoking: `<path d="${sh}" fill="#16161a"/><path d="M50 84 L60 104 L70 84 Z" fill="#f4f1ea"/><path d="M50 84 L58 100 L46 92 Z M70 84 L62 100 L74 92 Z" fill="#2a2a32"/><path d="M53 90 L60 93 L53 96 Z M67 90 L60 93 L67 96 Z" fill="#111"/>`,
     vesteor: `<path d="${sh}" fill="url(#${id}v)"/><path d="M50 84 L60 106 L70 84 Z" fill="#1d1a12"/><path d="M50 84 L57 102 L44 93 Z M70 84 L63 102 L76 93 Z" fill="#8a5d00"/>`,
@@ -3644,39 +3660,76 @@ function avatarSVG(raw, size = 120){
   if (a.acc === 'chaine') p += `<path d="M46 84 Q60 104 74 84" fill="none" stroke="#ffd34d" stroke-width="3" stroke-dasharray="3 1.5"/><circle cx="60" cy="98" r="5" fill="#ffd34d" stroke="#b8862b"/><text x="60" y="100.5" text-anchor="middle" font-size="7" font-weight="700" fill="#6b4500">€</text>`;
   if (a.acc === 'medaille') p += `<path d="M52 84 L58 100 M68 84 L62 100" stroke="#c8283f" stroke-width="4"/><circle cx="60" cy="103" r="6" fill="#ffd34d" stroke="#b8862b" stroke-width="1.5"/><text x="60" y="106" text-anchor="middle" font-size="7" fill="#6b4500">★</text>`;
   if (a.acc === 'noeud') p += `<path d="M52 88 L60 92 L52 96 Z M68 88 L60 92 L68 96 Z" fill="#c8283f"/><circle cx="60" cy="92" r="2.5" fill="#8a1a2b"/>`;
-  // cou et tête
-  p += `<rect x="52" y="70" width="16" height="16" rx="4" fill="${sk2}"/><circle cx="35" cy="54" r="5.5" fill="${sk2}"/><circle cx="85" cy="54" r="5.5" fill="${sk2}"/><circle cx="60" cy="52" r="25" fill="${sk}"/>`;
+  // oreilles
+  p += `<ellipse cx="35.5" cy="52" rx="5" ry="7.5" fill="${sk2}"/><ellipse cx="84.5" cy="52" rx="5" ry="7.5" fill="${sk2}"/><path d="M34.2 48 Q37 52 34.6 56 M85.8 48 Q83 52 85.4 56" fill="none" stroke="${sk3}" stroke-width="1.3" stroke-linecap="round"/>`;
+  // visage (forme au choix, léger relief)
+  const FACE = {
+    ovale: 'M60 21 C76 21 84.5 33 84.5 49.5 C84.5 66 74 79.5 60 79.5 C46 79.5 35.5 66 35.5 49.5 C35.5 33 44 21 60 21 Z',
+    rond: 'M60 22 C78 22 85.5 35 85.5 51 C85.5 67 75 78 60 78 C45 78 34.5 67 34.5 51 C34.5 35 42 22 60 22 Z',
+    carre: 'M60 21 C78 21 84.5 31 84.5 47.5 C84.5 62 82.5 72 74.5 76 C68 79.5 52 79.5 45.5 76 C37.5 72 35.5 62 35.5 47.5 C35.5 31 42 21 60 21 Z',
+    pointu: 'M60 21 C77 21 84.5 33 84.5 48.5 C84.5 62 72.5 77.5 60 80.5 C47.5 77.5 35.5 62 35.5 48.5 C35.5 33 43 21 60 21 Z',
+  };
+  p += `<path d="${FACE[a.face] || FACE.ovale}" fill="url(#${id}f)" stroke="${sk3}" stroke-width=".6" stroke-opacity=".45"/>`;
+  // joues
+  p += `<ellipse cx="45" cy="62" rx="4.6" ry="2.6" fill="#ff7a7a" opacity=".17"/><ellipse cx="75" cy="62" rx="4.6" ry="2.6" fill="#ff7a7a" opacity=".17"/>`;
+  // barbe
   p += ({
-    court: `<path d="M35 50 C34 26 86 26 85 50 C80 38 70 34 60 36 C50 34 40 38 35 50 Z" fill="${hc}"/>`,
-    meche: `<path d="M35 50 C34 26 86 26 85 46 C76 40 62 40 50 46 C44 44 38 46 35 50 Z" fill="${hc}"/><path d="M50 46 C56 36 72 34 80 40 C70 40 60 44 56 50 Z" fill="${hc}"/>`,
-    crete: `<path d="M38 44 C40 34 80 34 82 44 C74 40 46 40 38 44 Z" fill="${hc}" opacity=".7"/><path d="M50 36 L52 16 L57 33 L60 12 L63 33 L68 16 L70 36 Z" fill="${hc}"/>`,
-    boucles: [[38,40],[44,32],[52,28],[60,27],[68,28],[76,32],[82,40],[35,48],[85,48]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="7" fill="${hc}"/>`).join(''),
-    long: `<path d="M35 52 C33 26 87 26 85 52 C80 38 66 34 60 36 C54 34 40 38 35 52 Z" fill="${hc}"/>`,
-    rase: `<path d="M37 44 C40 30 80 30 83 44 C74 38 46 38 37 44 Z" fill="${hc}" opacity=".35"/>`,
-  })[a.hair] || '';
+    moustache: `<path d="M51.5 63.2 Q56 60.4 60 62.4 Q64 60.4 68.5 63.2 Q64 65.4 60 64 Q56 65.4 51.5 63.2 Z" fill="${hc}"/>`,
+    bouc: `<path d="M54.5 72.5 Q60 80.5 65.5 72.5 Q60 75.5 54.5 72.5 Z" fill="${hc}"/><path d="M53 63.6 Q60 61.4 67 63.6 Q60 65.2 53 63.6 Z" fill="${hc}" opacity=".85"/>`,
+    barbe: `<path d="M36.5 50 C37 70 47 81 60 81.5 C73 81 83 70 83.5 50 C81 61 76 67 71 68.5 Q60 73.5 49 68.5 C44 67 39 61 36.5 50 Z" fill="${hc}" opacity=".95"/><path d="M51.5 63.4 Q56 60.6 60 62.6 Q64 60.6 68.5 63.4 Q64 65.6 60 64.2 Q56 65.6 51.5 63.4 Z" fill="${hc}"/>`,
+  })[a.beard] || '';
+  // nez
   p += ({
-    normal: `<circle cx="50" cy="53" r="3.2" fill="#1d1a12"/><circle cx="70" cy="53" r="3.2" fill="#1d1a12"/><circle cx="51" cy="52" r="1" fill="#fff"/><circle cx="71" cy="52" r="1" fill="#fff"/>`,
-    joyeux: `<path d="M46 54 Q50 48 54 54 M66 54 Q70 48 74 54" fill="none" stroke="#1d1a12" stroke-width="2.6" stroke-linecap="round"/>`,
-    clin: `<circle cx="50" cy="53" r="3.2" fill="#1d1a12"/><path d="M66 53 L74 53" stroke="#1d1a12" stroke-width="2.6" stroke-linecap="round"/>`,
-    determine: `<circle cx="50" cy="54" r="3" fill="#1d1a12"/><circle cx="70" cy="54" r="3" fill="#1d1a12"/><path d="M45 46 L55 49 M75 46 L65 49" stroke="#1d1a12" stroke-width="2.6" stroke-linecap="round"/>`,
-    etoiles: `<text x="50" y="57.5" text-anchor="middle" font-size="12" fill="#ffd34d" stroke="#b8862b" stroke-width=".6">★</text><text x="70" y="57.5" text-anchor="middle" font-size="12" fill="#ffd34d" stroke="#b8862b" stroke-width=".6">★</text>`,
-    soleil: `<rect x="42" y="48" width="15" height="10" rx="4" fill="#111"/><rect x="63" y="48" width="15" height="10" rx="4" fill="#111"/><path d="M57 52 L63 52" stroke="#111" stroke-width="2"/><path d="M44 50 L50 50" stroke="#fff" stroke-width="1.2" opacity=".6"/>`,
-  })[a.eyes] || '';
+    petit: `<path d="M57.8 59.2 Q60 61.3 62.2 59.2" fill="none" stroke="${sk3}" stroke-width="1.6" stroke-linecap="round"/>`,
+    rond: `<ellipse cx="60" cy="58.6" rx="3.6" ry="2.8" fill="${sk2}"/><circle cx="58.4" cy="59.7" r=".8" fill="${sk3}"/><circle cx="61.6" cy="59.7" r=".8" fill="${sk3}"/>`,
+    long: `<path d="M60.6 49 L58.2 59 Q60 61 62.4 59.4" fill="none" stroke="${sk3}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,
+  })[a.nose] || '';
+  // bouche
+  const open = `<path d="M51.5 64.5 Q60 76 68.5 64.5 Z" fill="#5a1a1a"/><path d="M53.2 65 L66.8 65 L65.8 67.6 L54.2 67.6 Z" fill="#fff"/><path d="M55.5 71 Q60 74.5 64.5 71 Q60 69.5 55.5 71 Z" fill="#e8657e"/>`;
   p += ({
-    sourire: `<path d="M52 62 Q60 69 68 62" fill="none" stroke="#5a1a1a" stroke-width="2.6" stroke-linecap="round"/>`,
-    grand: `<path d="M50 61 Q60 74 70 61 Z" fill="#5a1a1a"/><path d="M52 61.5 L68 61.5 L67 64 L53 64 Z" fill="#fff"/>`,
-    neutre: `<path d="M53 64 L67 64" stroke="#5a1a1a" stroke-width="2.6" stroke-linecap="round"/>`,
-    langue: `<path d="M51 62 Q60 70 69 62" fill="none" stroke="#5a1a1a" stroke-width="2.6" stroke-linecap="round"/><path d="M57 66 Q60 73 63 66 Z" fill="#ef6f8a"/>`,
-    dentor: `<path d="M50 61 Q60 74 70 61 Z" fill="#5a1a1a"/><path d="M52 61.5 L68 61.5 L67 64 L53 64 Z" fill="#fff"/><rect x="61" y="61.5" width="4" height="3" fill="#ffd34d"/>`,
+    sourire: `<path d="M53 65.5 Q60 71.5 67 65.5" fill="none" stroke="#7a2f2f" stroke-width="2.2" stroke-linecap="round"/>`,
+    grand: open,
+    neutre: `<path d="M54.5 67 L65.5 67" stroke="#7a2f2f" stroke-width="2.2" stroke-linecap="round"/>`,
+    langue: `<path d="M52.5 65.5 Q60 71.5 67.5 65.5" fill="none" stroke="#7a2f2f" stroke-width="2.2" stroke-linecap="round"/><path d="M57 68.5 Q60 75 63 68.5 Z" fill="#ef6f8a"/>`,
+    dentor: open + `<rect x="61" y="65" width="3.6" height="2.6" fill="#ffd34d"/>`,
   })[a.mouth] || '';
-  if (a.acc === 'lunettes') p += `<circle cx="50" cy="53" r="7" fill="none" stroke="#1d1a12" stroke-width="2"/><circle cx="70" cy="53" r="7" fill="none" stroke="#1d1a12" stroke-width="2"/><path d="M57 53 L63 53" stroke="#1d1a12" stroke-width="2"/>`;
-  if (a.acc === 'casque') p += `<path d="M33 54 C33 20 87 20 87 54" fill="none" stroke="#222" stroke-width="5"/><rect x="27" y="46" width="10" height="16" rx="4" fill="#c8283f"/><rect x="83" y="46" width="10" height="16" rx="4" fill="#c8283f"/>`;
+  // yeux : blanc, iris de couleur, pupille, reflet, paupière
+  const eye = x => `<ellipse cx="${x}" cy="50.5" rx="4.8" ry="3.9" fill="#fff"/><circle cx="${x + .3}" cy="50.8" r="2.8" fill="${ec}"/><circle cx="${x + .3}" cy="50.8" r="1.35" fill="#14100c"/><circle cx="${x + 1.3}" cy="49.6" r=".9" fill="#fff"/><path d="M${x - 5} 49.8 Q${x} 45.6 ${x + 5} 49.8" fill="none" stroke="#2b1d14" stroke-width="1.5" stroke-linecap="round"/>`;
+  const shut = (x, up) => `<path d="M${x - 4.5} 51 Q${x} ${up ? 46 : 54} ${x + 4.5} 51" fill="none" stroke="#2b1d14" stroke-width="2.2" stroke-linecap="round"/>`;
   p += ({
-    casquette: `<path d="M35 42 C36 22 84 22 85 42 Z" fill="${tc}"/><path d="M60 40 L96 44 C94 48 80 48 60 44 Z" fill="${tc2}"/><circle cx="60" cy="24" r="2.5" fill="${tc2}"/>`,
-    bonnet: `<path d="M34 46 C33 18 87 18 86 46 Z" fill="#c8283f"/><rect x="32" y="40" width="56" height="9" rx="4" fill="#f4f1ea"/><circle cx="60" cy="16" r="6" fill="#f4f1ea"/>`,
-    haut: `<rect x="42" y="6" width="36" height="30" rx="2" fill="#16161a"/><rect x="42" y="28" width="36" height="6" fill="#c8283f"/><ellipse cx="60" cy="36" rx="30" ry="5" fill="#16161a"/>`,
-    cowboy: `<ellipse cx="60" cy="36" rx="38" ry="7" fill="#7a4a1f"/><path d="M42 36 C42 14 78 14 78 36 Z" fill="#8d5a2b"/><rect x="42" y="29" width="36" height="5" fill="#3b2414"/>`,
-    couronne: `<path d="M38 36 L40 14 L50 26 L60 10 L70 26 L80 14 L82 36 Z" fill="#ffd34d" stroke="#b8862b" stroke-width="1.5"/><circle cx="60" cy="27" r="3" fill="#ef4657"/><circle cx="47" cy="30" r="2.2" fill="#2c56cf"/><circle cx="73" cy="30" r="2.2" fill="#2fd27a"/>`,
+    normal: eye(50) + eye(70),
+    joyeux: shut(50, true) + shut(70, true),
+    clin: eye(50) + shut(70, false),
+    determine: eye(50) + eye(70) + `<path d="M44.6 50.6 L55.4 49.2 L55.4 45 L44.6 45 Z" fill="${sk}"/><path d="${mir('M44.6 50.6 L55.4 49.2 L55.4 45 L44.6 45 Z')}" fill="${sk}"/><path d="M44.6 50.6 L55.4 49.2 M75.4 50.6 L64.6 49.2" stroke="#2b1d14" stroke-width="1.6" stroke-linecap="round"/>`,
+    etoiles: `<text x="50" y="54.5" text-anchor="middle" font-size="12" fill="#ffd34d" stroke="#b8862b" stroke-width=".6">★</text><text x="70" y="54.5" text-anchor="middle" font-size="12" fill="#ffd34d" stroke="#b8862b" stroke-width=".6">★</text>`,
+    soleil: `<path d="M41 46.5 L57 46.5 L56 53 Q50 57 44 54 Z M63 46.5 L79 46.5 L76 54 Q70 57 64 53 Z" fill="#111"/><path d="M57 48 L63 48" stroke="#111" stroke-width="2"/><path d="M44 48.2 L49 48.2" stroke="#fff" stroke-width="1.1" opacity=".55"/>`,
+  })[a.eyes] || '';
+  // sourcils
+  const BR = {normal: ['M44.5 43.6 Q50 40.8 55.3 43', 2.2], epais: ['M44.3 43.8 Q50 40.4 55.5 43', 3.6], fins: ['M44.8 43.4 Q50 41 55 43', 1.3], fronces: ['M44.8 41.6 Q50 42.4 55.4 45', 2.4], leves: ['M44.5 41.2 Q50 37.6 55.3 40.4', 2.2]}[a.brows] || ['M44.5 43.6 Q50 40.8 55.3 43', 2.2];
+  if (a.eyes !== 'soleil') p += `<path d="${BR[0]} ${mir(BR[0])}" fill="none" stroke="${hb}" stroke-width="${BR[1]}" stroke-linecap="round"/>`;
+  // cheveux devant
+  p += ({
+    rase: `<path d="M36.5 44 C38 26 82 26 83.5 44 C76 35 44 35 36.5 44 Z" fill="${hc}" opacity=".38"/>`,
+    court: `<path d="M35 47 C32 25 46 16 61 16 C77 16 89 26 85 47 C83 37 77 31 69 29.5 C62 33 52 33 45 30.5 C40 34 37 39 35 47 Z" fill="${hc}"/>`,
+    meche: `<path d="M35 46 C32 24 47 15 62 16 C78 16 89 27 85 44 C78 34 64 31 50 37 C44 38 38 41 35 46 Z" fill="${hc}"/><path d="M47 38 C55 25 74 23 85 32 C72 30 60 34 53 42 Z" fill="${hc2}" opacity=".5"/>`,
+    crete: `<path d="M36.5 44 C38 26 82 26 83.5 44 C76 35 44 35 36.5 44 Z" fill="${hc}" opacity=".35"/><path d="M50 33 L52 10 L56.5 29 L60 6 L63.5 29 L68 10 L70 33 Q60 30 50 33 Z" fill="${hc}"/>`,
+    boucles: [[37,42],[42,33],[50,26],[60,24],[70,26],[78,33],[83,42],[46,30],[74,30]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="7.5" fill="${hc}"/>`).join('') + `<circle cx="58" cy="23" r="3" fill="${hcl}" opacity=".3"/>`,
+    long: `<path d="M35 52 C31 24 47 15 61 15 C76 15 90 25 85 52 C82 39 72 32 64 31 C58 37 46 38 38 40 C36 44 35 48 35 52 Z" fill="${hc}"/>`,
+    afro: `<path d="M32 46 C30 28 46 20 60 22 C74 20 90 28 88 46 C84 38 74 33 60 34 C46 33 36 38 32 46 Z" fill="${hc}"/>`,
+    queue: `<path d="M35 46 C33 24 47 16 61 16 C76 16 88 25 85 45 C80 34 70 30 60 30.5 C50 30 40 34 35 46 Z" fill="${hc}"/>`,
+    chignon: `<path d="M35 45 C33 24 47 17 61 17 C76 17 88 25 85 44 C80 33 70 29.5 60 30 C50 29.5 40 33 35 45 Z" fill="${hc}"/>`,
+  })[a.hair] || '';
+  if (['court', 'meche', 'long', 'afro', 'queue', 'chignon'].includes(a.hair)) p += `<path d="M44 24 Q55 18.5 67 20" fill="none" stroke="${hcl}" stroke-width="1.8" stroke-linecap="round" opacity=".33"/>`;
+  // accessoires du visage
+  if (a.acc === 'lunettes') p += `<circle cx="50" cy="50.5" r="7" fill="#fff" fill-opacity=".12" stroke="#1d1a12" stroke-width="2"/><circle cx="70" cy="50.5" r="7" fill="#fff" fill-opacity=".12" stroke="#1d1a12" stroke-width="2"/><path d="M57 50 L63 50 M43 49 L37 47 M77 49 L83 47" stroke="#1d1a12" stroke-width="2" stroke-linecap="round"/>`;
+  if (a.acc === 'casque') p += `<path d="M32 52 C32 10 88 10 88 52" fill="none" stroke="#222" stroke-width="5"/><rect x="27" y="44" width="11" height="17" rx="5" fill="#c8283f"/><rect x="82" y="44" width="11" height="17" rx="5" fill="#c8283f"/>`;
+  // chapeaux
+  p += ({
+    casquette: `<path d="M34 39 C34 13 86 13 86 39 Z" fill="${tc}"/><path d="M60 37 L99 41 C97 46 80 46 60 42 Z" fill="${tc2}"/><circle cx="60" cy="15" r="2.6" fill="${tc2}"/>`,
+    bonnet: `<path d="M33 43 C32 9 88 9 87 43 Z" fill="#c8283f"/><rect x="31" y="36" width="58" height="10" rx="5" fill="#f4f1ea"/><circle cx="60" cy="8" r="6.5" fill="#f4f1ea"/>`,
+    haut: `<rect x="43" y="1" width="34" height="27" rx="2" fill="#16161a"/><rect x="43" y="21" width="34" height="6" fill="#c8283f"/><ellipse cx="60" cy="29" rx="31" ry="5" fill="#16161a"/>`,
+    cowboy: `<ellipse cx="60" cy="31" rx="41" ry="7" fill="#7a4a1f"/><path d="M41 31 C41 7 79 7 79 31 Z" fill="#8d5a2b"/><rect x="41" y="24" width="38" height="5" fill="#3b2414"/>`,
+    couronne: `<path d="M37 31 L39 9 L49 21 L60 5 L71 21 L81 9 L83 31 Z" fill="#ffd34d" stroke="#b8862b" stroke-width="1.5"/><circle cx="60" cy="22" r="3" fill="#ef4657"/><circle cx="47" cy="25.5" r="2.2" fill="#2c56cf"/><circle cx="73" cy="25.5" r="2.2" fill="#2fd27a"/>`,
   })[a.hat] || '';
   if (a.fx === 'etincelles') p += [[22,30,8],[98,26,6],[100,74,7],[18,80,6],[86,10,5]].map(([x, y, s]) => `<path d="M${x} ${y - s} L${x + s * .3} ${y - s * .3} L${x + s} ${y} L${x + s * .3} ${y + s * .3} L${x} ${y + s} L${x - s * .3} ${y + s * .3} L${x - s} ${y} L${x - s * .3} ${y - s * .3} Z" fill="#fff6c8"/>`).join('');
   return `<svg class="avsvg" viewBox="0 0 120 120" width="${size}" height="${size}" aria-hidden="true"><defs>${defs}<clipPath id="${id}c"><circle cx="60" cy="60" r="60"/></clipPath></defs><g clip-path="url(#${id}c)">${p}</g></svg>`;
@@ -4267,7 +4320,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261112003254';
+const GAME_BUILD = '20261112003954';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

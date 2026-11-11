@@ -399,6 +399,7 @@ body.gated .toasts{z-index:101}
 .mc-line .adm,.mc-line b.adm{color:#ff6b6b}
 .mc-line.me b{color:var(--gold)}
 .mc-line.sys{color:#a6f0b0}
+.mc-line .tm{color:#9fb3a8;font-size:12px;font-weight:400}
 .mc-line.fade{opacity:0}
 .mc:not(.open) .mc-line.old{display:none}
 .mc.open{pointer-events:auto}
@@ -3466,6 +3467,8 @@ const CHAT = (() => {
     if (m.created_at) d.title = fmtT(m.created_at);
     if (m.sys) d.textContent = m.msg;
     else {
+      // heure du message (ex : 23:51), en petit et en gris
+      if (m.created_at){ const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = fmtT(m.created_at) + ' '; d.appendChild(tm); }
       if (m.admin){ const a = document.createElement('span'); a.className = 'adm'; a.textContent = '[ADMIN] '; d.appendChild(a); }
       const b = document.createElement('b'); b.textContent = '<' + m.name + '> '; if (m.admin) b.className = 'adm';
       d.append(b, document.createTextNode(m.msg));
@@ -4218,7 +4221,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261111235507';
+const GAME_BUILD = '20261111235654';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

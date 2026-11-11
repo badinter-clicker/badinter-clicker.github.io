@@ -1021,10 +1021,12 @@ function fmt(n){
 const M = n => fmt(n) + ' €';
 const fx = (m, d = 2) => m.toFixed(d).replace('.', ',');
 function fmtTime(s){ s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h} h ${m} min` : m ? `${m} min ${s % 60} s` : `${s} s`; }
-const MUL = {k:1e3, m:1e6, md:1e9, bn:1e12, bd:1e15};
+// montants : 500, 20k, 3M, 2Md, 1Bn, 4Bd, 1Tn, 1Td, 2Qa, 1Qad, 1Qi… et aussi l'écriture scientifique (1e+24) des très grosses sommes
+const MUL = {k:1e3, m:1e6, md:1e9, bn:1e12, bd:1e15, tn:1e18, td:1e21, qa:1e24, qad:1e27, qi:1e30, qid:1e33, sx:1e36, sxd:1e39};
 function parseAmt(s){
   s = String(s).toLowerCase().replace(/[\s €]/g, '').replace(',', '.');
-  const m = s.match(/^(\d+(?:\.\d+)?)(k|m|md|bn|bd)?$/);
+  if (/^\d+(?:\.\d+)?e\+?\d+$/.test(s)){ const v = Number(s); return isFinite(v) ? v : NaN; }
+  const m = s.match(/^(\d+(?:\.\d+)?)(k|md|m|bn|bd|tn|td|qad|qa|qid|qi|sxd|sx)?$/);
   return m ? parseFloat(m[1]) * (MUL[m[2]] || 1) : NaN;
 }
 
@@ -1360,14 +1362,6 @@ Règles pour toi : sois honnête sur les chiffres du joueur (utilise l'état fou
     // un message qui commence par « / » est masqué à l'écran
     add(/^\//.test(q) ? '/' + '•'.repeat(Math.min(12, Math.max(4, q.length - 1))) : q, 'u');
     const out = add('…', 'b');
-    // commande « / » : si le serveur a reconnu l'admin (compte Ryzer + son PC), elle part dans la console admin
-    if (/^\s*\//.test(q) && LB.loggedIn()){
-      if (ADMIN.active()){ ADMIN.run(q); typeOut(out, '⚡ Commande envoyée dans ta console admin (en bas à gauche).'); return; }
-      typeOut(out, (String(S.pseudo).toLowerCase() === 'ryzer' && LB.devState() !== 'ok')
-        ? '🔒 Les pouvoirs admin marchent seulement sur ton PC verrouillé : va dans Classement → Ton compte → « Verrouiller mon compte sur cet ordinateur ».'
-        : answerLocal(q).text);
-      return;
-    }
     const loc = answerLocal(q);
     if (loc.score >= 1 || (aiState !== 'ok' && llmState !== 'ready')){ setTimeout(() => typeOut(out, loc.text), 280); return; }
     if (aiState !== 'ok'){
@@ -3846,7 +3840,6 @@ const ADMIN = (() => {
     '/logs                            journal de sécurité (essais, actions)',
     '/lock                            fermer la console (bouton ⚡ pour la rouvrir)',
     'Sécurité : plus de phrase secrète. Tes pouvoirs sont actifs automatiquement sur le compte Ryzer, et SEULEMENT sur ton PC verrouillé (vérifié par le serveur).',
-    'Astuce : tu peux aussi écrire une commande à Bad (ex : /joueurs), elle part dans ta console.',
     'Montants : 500, 20k, 3M, 2Md. Pseudo avec espaces : entre "guillemets".',
   ];
   function tokens(s){ const r = []; s.replace(/"([^"]*)"|(\S+)/g, (_, q, w) => { r.push(q !== undefined ? q : w); return ''; }); return r; }
@@ -4320,7 +4313,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261112003954';
+const GAME_BUILD = '20261112004237';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

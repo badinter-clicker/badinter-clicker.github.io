@@ -1205,9 +1205,9 @@ const Bad = (() => {
 Style : français, tutoiement, sympa mais surtout CLAIR. Réponds d'abord à la question en une phrase simple, puis si utile 2 à 4 puces commençant par « • ». Utilise les chiffres exacts du joueur. Mots simples, pas de jargon.
 Ce que contient le jeu :
 - Mon casino : on clique sur le bâtiment pour gagner de l'argent, on achète des investissements (revenus automatiques) et des améliorations. Des jetons dorés apparaissent (×7 revenus, gros gain, ou clics ×77). La franchise remet à zéro contre des étoiles (+4 % chacune, 1 étoile à 1 M€ gagnés au total, puis racine cubique).
-- Gratte-ciel (jeu de la salle de jeux) : on mise, un étage se balance au bout d'une grue, on appuie sur « Construire » pour le lâcher sur la tour. Chaque étage posé fait monter le multiplicateur (×1,01 ; ×1,03 ; ×1,06 ; ×1,1… ×2 au 13e étage, ×5 au 20e, jusqu'à ×10 au 23e étage). Il n'y a pas de mise maximum, mais plus la mise est grosse, plus les multiplicateurs baissent : ils sont complets jusqu'à la mise normale (1 h de revenus ou 1 % de l'argent du joueur, 100 000 € minimum), puis le bonus diminue (mise ×4 → bonus divisé par 2), sans descendre sous ×1,9 au dernier étage. Le jeu est volontairement dur : le balancement est rapide et il faut viser précisément. On peut « Récupérer » à tout moment. Si l'étage rate la tour ou si la tour devient trop déséquilibrée et penche, elle s'écroule et on perd la mise. Le balancement devient plus fort et plus rapide en montant. Conseil : lâcher quand l'étage passe au milieu, encaisser avant que ça devienne trop dur.
-- Salle de jeux : roulette simplifiée (on choisit un montant et une couleur : rouge ×2, noir ×2, vert ×36 ; 18 rouges, 18 noirs, 1 vert ; 1 fois sur 100, une case de la roue devient dorée juste avant le lancer et la bille tombe forcément dessus : la mise est multipliée par 75), machine à sous avec jackpot progressif (⭐⭐⭐), blackjack (×2, blackjack ×2,5, croupier tire jusqu'à 17), Crash (encaisser avant l'explosion), Mines (5×5), dés (gain = 97 / chance), pile ou face (×1,94), Plinko, ticket à gratter, Plus haut / Plus bas, course de chevaux. Tous ces jeux ont un léger avantage pour le casino (environ 3 à 5 %).
-- Règles anti-abus du casino (pour tous les jeux) : jusqu'à la « mise normale » (la plus grande somme entre 1 h de revenus, 1 % de l'argent du joueur et 100 000 €) le gain est complet ; au-delà le gain est réduit (mise ×4 → gain divisé par 2, mise ×100 → gain divisé par 10). Pas de mise maximum ni de plafond. Même avec une mise énorme, le bonus garde au moins 10 % (au Gratte-ciel, le 23e étage vaut toujours au moins ×1,9). La chance (fer à cheval, trèfle, assurance, gains boostés) compte moins quand la mise dépasse 30 min de revenus. Au Mines, le détecteur de bombe ajuste les multiplicateurs. Avec 1 seule bombe, le détecteur n'est pas utilisé (il la trouverait et il n'y aurait plus de risque, donc plus de gain : seulement ×0,97).
+- Gratte-ciel (jeu de la salle de jeux) : on mise, un étage se balance au bout d'une grue, on appuie sur « Construire » pour le lâcher sur la tour. Chaque étage posé fait monter le multiplicateur (×1,01 ; ×1,03 ; ×1,06 ; ×1,1… ×2 au 13e étage, ×5 au 20e, jusqu'à ×10 au 23e étage). Il n'y a pas de mise maximum, mais plus la mise est grosse, plus les multiplicateurs baissent : ils sont complets jusqu'à la mise normale (1 h de revenus ou 3 % de l'argent du joueur, 100 000 € minimum), puis le bonus diminue (mise ×4 → bonus divisé par 2), sans descendre sous ×2,8 au dernier étage. Le jeu est volontairement dur : le balancement est rapide et il faut viser précisément. On peut « Récupérer » à tout moment. Si l'étage rate la tour ou si la tour devient trop déséquilibrée et penche, elle s'écroule et on perd la mise. Le balancement devient plus fort et plus rapide en montant. Conseil : lâcher quand l'étage passe au milieu, encaisser avant que ça devienne trop dur.
+- Salle de jeux : roulette simplifiée (on choisit un montant et une couleur : rouge ×2, noir ×2, vert ×36 ; 18 rouges, 18 noirs, 1 vert ; 1 fois sur 100, une case de la roue devient dorée juste avant le lancer et la bille tombe forcément dessus : la mise est multipliée par 75), machine à sous avec jackpot progressif (⭐⭐⭐), blackjack (×2, blackjack ×2,5, croupier tire jusqu'à 17), Crash (encaisser avant l'explosion), Mines (5×5), dés (gain = 97 / chance), pile ou face (×1,98), Plinko, ticket à gratter, Plus haut / Plus bas, course de chevaux. Tous ces jeux ont un léger avantage pour le casino (environ 3 à 5 %).
+- Règles anti-abus du casino (pour tous les jeux) : jusqu'à la « mise normale » (la plus grande somme entre 1 h de revenus, 3 % de l'argent du joueur et 100 000 €) le gain est complet ; au-delà le gain est réduit (mise ×4 → gain divisé par 2, mise ×100 → gain divisé par 10). Pas de mise maximum ni de plafond. Même avec une mise énorme, le bonus garde au moins 20 % (au Gratte-ciel, le 23e étage vaut toujours au moins ×2,8). La chance (fer à cheval, trèfle, assurance, gains boostés) compte moins quand la mise dépasse 30 min de revenus. Au Mines, le détecteur de bombe ajuste les multiplicateurs. Avec 1 seule bombe, le détecteur n'est pas utilisé (il la trouverait et il n'y aurait plus de risque, donc plus de gain : seulement ×0,97).
 - BadCoin : on parie que la cote d'une crypto fictive (BadCoin, LycéeCoin, CantineToken) monte ou descend, avec un levier jusqu'à ×25, encaissement auto (take profit) et coupure auto (stop loss). Frais 1 %. Liquidation si la perte atteint la mise. La courbe est verte si le joueur gagne, rouge s'il perd. Le cours est aléatoire : personne ne peut prévoir.
 - Mini-jeux d'adresse qui rapportent sans risque : Badi'Tour (empiler des étages), Pluie de billets, Réflexe du croupier.
 - Boutique de boosts (onglet de Mon casino) : Trèfle à 4 feuilles (3 min, 30 % de chances que la mise soit rendue en cas de perte), Gains boostés (+50 % sur les gains, 2 min), Assurance (moitié de la perte rendue, 2 min), Rumeur sur le BadCoin (le cours tend à monter 45 s), Clics turbo (×5, 1 min), Revenus ×3 (2 min), Aimant à jetons dorés, Détecteur de mines, Ticket de roue. Le Fer à cheval est permanent : +2 % de chances par niveau (max 10) que la mise soit rendue en cas de perte. Les prix augmentent avec la richesse du joueur. Les investissements (revenus automatiques) sont dans l'onglet « Revenus auto ».
@@ -1251,7 +1251,7 @@ Règles pour toi : sois honnête sur les chiffres du joueur (utilise l'état fou
     return '💡 Mes conseils pour toi :\n• ' + L.slice(0, 4).join('\n• ');
   }
   const RULE = {
-    tower: () => '🏗️ Gratte-ciel :\n• Choisis ta mise puis clique sur « Commencer ».\n• L’étage se balance au bout de la grue : appuie sur « Construire » quand il est au-dessus de la tour.\n• Chaque étage posé multiplie ta mise (×1,01 → ×1,03 → ×1,06… ×2 au 13e étage, jusqu’à ×10 au 23e).\n• Plus tu mises gros, plus les multiplicateurs baissent : ils sont complets jusqu’à ta mise normale (1 h de revenus ou 1 % de ton argent, 100 000 € minimum), puis le bonus diminue (mise ×4 → bonus ÷2), sans descendre sous ×1,9 au dernier étage.\n• Ça balance vite : il faut viser précisément.\n• Clique sur « Récupérer » quand tu veux encaisser.\n• Si l’étage rate la tour ou si elle penche trop, elle s’écroule et tu perds ta mise.\nAstuce : lâche quand l’étage passe au milieu de son balancement.',
+    tower: () => '🏗️ Gratte-ciel :\n• Choisis ta mise puis clique sur « Commencer ».\n• L’étage se balance au bout de la grue : appuie sur « Construire » quand il est au-dessus de la tour.\n• Chaque étage posé multiplie ta mise (×1,01 → ×1,03 → ×1,06… ×2 au 13e étage, jusqu’à ×10 au 23e).\n• Plus tu mises gros, plus les multiplicateurs baissent : ils sont complets jusqu’à ta mise normale (1 h de revenus ou 3 % de ton argent, 100 000 € minimum), puis le bonus diminue (mise ×4 → bonus ÷2), sans descendre sous ×2,8 au dernier étage.\n• Ça balance vite : il faut viser précisément.\n• Clique sur « Récupérer » quand tu veux encaisser.\n• Si l’étage rate la tour ou si elle penche trop, elle s’écroule et tu perds ta mise.\nAstuce : lâche quand l’étage passe au milieu de son balancement.',
     roulette: () => '🎡 Roulette :\n• Choisis ton montant et une couleur.\n• Rouge ou noir : ta mise ×2 (18 cases sur 37).\n• Vert : ta mise ×36 (1 case sur 37).\n• 🌟 Case dorée : 1 fois sur 100, une case devient dorée avant le lancer et la bille tombe forcément dessus : ta mise ×75 !\n• Puis clique sur « Lancer la roue ».',
     slots: () => `🎰 Machine à sous :\n• Clique sur « Jouer » : 3 rouleaux tournent.\n• 3 symboles pareils : de ×4 (🍒) à ×80 (⭐).\n• Une paire : ×1,25.\n• ⭐⭐⭐ gagne aussi le jackpot, qui vaut ${M(S.jackpot)} en ce moment.`,
     bj: () => '🃏 Blackjack :\n• Le but : avoir plus de points que le croupier sans dépasser 21.\n• Figures = 10, As = 1 ou 11.\n• « Prendre une carte » pour te rapprocher de 21, « Je m’arrête là » pour garder ton total.\n• Victoire ×2, blackjack (21 en 2 cartes) ×2,5, égalité = mise rendue.\nAstuce : arrête-toi à partir de 17, double ta mise sur 10 ou 11.',
@@ -1262,7 +1262,7 @@ Règles pour toi : sois honnête sur les chiffres du joueur (utilise l'état fou
     hilo: () => '🔼 Plus haut / Plus bas :\n• Devine si la carte suivante sera plus haute ou plus basse (As = 1, Roi = 13).\n• Chaque bonne réponse multiplie ton gain. Une égalité fait perdre.\n• « Changer de carte » est gratuit. « Arrêter et récupérer » pour encaisser.',
     horses: () => '🏇 Course de chevaux :\n• Choisis ton cheval puis lance la course.\n• La cote = combien ta mise est multipliée s’il gagne.\n• Grosse cote = cheval qui gagne rarement.',
     dice: () => '🎲 Dés :\n• Un nombre entre 0 et 100 tombe.\n• Tu choisis ta chance de gagner avec le curseur.\n• Moins de chance = plus gros gain (50 % → ×1,94 ; 10 % → ×9,7).',
-    coin: () => '🪙 Pile ou face :\n• Choisis pile ou face.\n• Gagné = ta mise ×1,94. Une chance sur deux.',
+    coin: () => '🪙 Pile ou face :\n• Choisis pile ou face.\n• Gagné = ta mise ×1,98. Une chance sur deux.',
   };
   const INTENTS = [
     {k:['salut','bonjour','coucou','yo','wesh','hello','slt','bjr','cc','hey','bonsoir'], w:.8, a:() => 'Salut ! 👋 Moi c’est Bad. Je peux te dire :\n• ton bilan (gains et pertes)\n• des conseils\n• les règles de n’importe quel jeu\nEssaie « je suis en perte ? » ou « règles du blackjack ».'},
@@ -1680,11 +1680,11 @@ function renderEvBar(){
     .map(e => `<span class="evchip">⚡ ${esc(evText(e))} · ${mmss((new Date(e.ends_at).getTime() - now) / 1000)}</span>`).join('');
   if (box.innerHTML !== html) box.innerHTML = html;
 }
-// Grosse mise = gain réduit (tous les jeux) : gain complet jusqu'à la « mise normale » (1 h de revenus ou 1 % de ton argent, 100 000 € minimum),
+// Grosse mise = gain réduit (tous les jeux) : gain complet jusqu'à la « mise normale » (1 h de revenus ou 3 % de ton argent, 100 000 € minimum),
 // au-delà le gain baisse (mise ×4 → gain ÷2, mise ×100 → gain ÷10). Tout miser ne fait donc plus exploser la fortune.
-const casRef = (pool = S.pts) => Math.max(1e5, Math.floor(baseCps() * 3600), Math.floor(pool * .01));
-// Minimum : même avec une mise énorme, le bonus garde 10 % (au Gratte-ciel, le 23e étage vaut toujours au moins ×1,9).
-const CAS_MIN = .1;
+const casRef = (pool = S.pts) => Math.max(1e5, Math.floor(baseCps() * 3600), Math.floor(pool * .03));
+// Minimum : même avec une mise énorme, le bonus garde 20 % (au Gratte-ciel, le 23e étage vaut toujours au moins ×2,8).
+const CAS_MIN = .2;
 const casFactor = (v, pool) => !v || v <= casRef(pool) ? 1 : Math.max(CAS_MIN, Math.sqrt(casRef(pool) / v));
 // La chance (fer à cheval, trèfle, assurance, gains boostés) ne suit que tes revenus : sinon, en misant une part
 // de sa fortune à chaque partie (ex : Mines à 24 bombes), elle rendait le casino gagnant à coup sûr.
@@ -2057,7 +2057,7 @@ const CAS = (() => {
 
   /* ----- Mines ----- */
   let mn = null, mnCount = 3;
-  const mnMult = (k, n, tiles = 25) => { let m = 1; for (let i = 0; i < k; i++) m *= (tiles - i) / (tiles - n - i); return m * .97; };
+  const mnMult = (k, n, tiles = 25) => { let m = 1; for (let i = 0; i < k; i++) m *= (tiles - i) / (tiles - n - i); return m * .99; };
   // avec le détecteur, une bombe est connue : il reste 24 cases dont n-1 bombes
   const mnRaw = k => mn && mn.shown >= 0 ? mnMult(k, mn.n - 1, 24) : mnMult(k, mn ? mn.n : mnCount);
   // multiplicateur réel (réduit pour les grosses mises, comme au Gratte-ciel) : c'est celui qui est affiché ET payé
@@ -2337,7 +2337,7 @@ const CAS = (() => {
   function renderCoin(){
     area.innerHTML = `<div class="felt">
       <div class="coin3d" id="coin">B</div>
-      <div class="cas-msg" id="casMsg">Pile ou face ? Gain ×1,94. Série de victoires : ${coinStreak}</div>
+      <div class="cas-msg" id="casMsg">Pile ou face ? Gain ×1,98. Série de victoires : ${coinStreak}</div>
       <div class="btns c"><button class="btn" data-c="pile" type="button">Pile</button><button class="btn" data-c="face" type="button">Face</button></div>
     </div>`;
     area.querySelectorAll('[data-c]').forEach(b => b.onclick = () => flip(b.dataset.c));
@@ -2351,7 +2351,7 @@ const CAS = (() => {
     setTimeout(() => {
       busy = false; c.textContent = res.toUpperCase();
       const win = res === choice; coinStreak = win ? coinStreak + 1 : 0;
-      settle('coin', v, win ? Math.floor(v * 1.94) : 0, win ? `${res.toUpperCase()} ! Gagné. Série : ${coinStreak}` : `${res.toUpperCase()}… Perdu. Série remise à 0.`);
+      settle('coin', v, win ? Math.floor(v * 1.98) : 0, win ? `${res.toUpperCase()} ! Gagné. Série : ${coinStreak}` : `${res.toUpperCase()}… Perdu. Série remise à 0.`);
     }, 1000);
   }
 
@@ -4225,7 +4225,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261112000549';
+const GAME_BUILD = '20261112000750';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

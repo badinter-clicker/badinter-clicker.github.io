@@ -3045,7 +3045,8 @@ const LB = (() => {
   async function rest(path, opt = {}){
     const t = await token();
     if (!t) return {ok: false, status: 401, error: 'non connecté'};
-    return api('/rest/v1/' + path, {...opt, headers: {...H(t), 'x-device': DEV, ...(opt.headers || {})}});
+    // x-build : numéro de version du jeu (le serveur refuse les sauvegardes des versions périmées)
+    return api('/rest/v1/' + path, {...opt, headers: {...H(t), 'x-device': DEV, 'x-build': String(GAME_BUILD), ...(opt.headers || {})}});
   }
 
   // --- Admin et événements en temps réel (les pouvoirs sont vérifiés par le serveur) ---
@@ -4221,7 +4222,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261111235654';
+const GAME_BUILD = '20261111235901';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

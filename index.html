@@ -3158,6 +3158,16 @@ const LB = (() => {
     unmute: to => rest('chat_mutes?user_id=eq.' + to, {method: 'DELETE'}),
     delChat: to => rest('chat?user_id=eq.' + to, {method: 'DELETE'}),
     clearChat: () => rest('chat?id=gt.0', {method: 'DELETE'}),
+    // liste des suspects remplie automatiquement par le bot du serveur (fortunes impossibles)
+    suspects: async () => {
+      const r = await rest('suspects?select=user_id,reason,hits,last_at&order=last_at.desc&limit=20');
+      if (!r.ok || !Array.isArray(r.data)) return null;
+      if (!r.data.length) return [];
+      const p = await rest('profiles?select=user_id,name&user_id=in.(' + r.data.map(s => s.user_id).join(',') + ')');
+      const nm = Object.fromEntries((p.ok && Array.isArray(p.data) ? p.data : []).map(x => [x.user_id, x.name]));
+      return r.data.map(s => ({...s, name: nm[s.user_id] || s.user_id.slice(0, 8)}));
+    },
+    clearSuspects: () => rest('suspects?hits=gte.0', {method: 'DELETE'}),
     bans: async () => {
       const r = await rest('banned?select=user_id,reason,net,created_at&order=created_at.desc');
       if (!r.ok || !Array.isArray(r.data) || !r.data.length) return [];
@@ -3745,6 +3755,10 @@ const ADMIN = (() => {
     '/unmute pseudo                   lui rendre le chat',
     '/delchat pseudo                  effacer ses messages du chat',
     '/clearchat                       vider tout le chat',
+    '— 🤖 Bot modérateur (automatique) —',
+    '/suspects                        joueurs qui ont envoyé une fortune impossible',
+    '/suspects vider                  effacer la liste',
+    'Le bot rend muet 10 min un joueur qui envoie 3 insultes en 10 min (visible dans /logs).',
     '/joueurs                         liste des joueurs',
     '— Pour tout le monde, en direct —',
     '/annonce texte                   message en grand pour tous (10 s)',
@@ -3803,6 +3817,15 @@ const ADMIN = (() => {
           }
           const r = cmd === 'unmute' ? await A.unmute(u.user_id) : await A.delChat(u.user_id);
           return r.ok ? out(cmd === 'unmute' ? `🔊 ${u.name} peut de nouveau écrire dans le chat.` : `🧹 Messages de ${u.name} effacés du chat.`, 'ok') : out('⛔ Refusé : ' + r.error, 'err');
+        }
+        case 'suspects': {
+          if (plain(t[1]) === 'vider'){ const r = await A.clearSuspects(); return r.ok ? out('🧹 Liste des suspects vidée.', 'ok') : out('⛔ Refusé : ' + r.error, 'err'); }
+          const l = await A.suspects();
+          if (!l) return out('⛔ permission denied', 'err');
+          if (!l.length) return out('✅ Aucun suspect : le bot n’a rien détecté.');
+          out('— 🤖 Suspects détectés par le bot (fortune impossible envoyée) —');
+          l.forEach(s => out(`${s.name} · ${s.hits} fois · dernière ${new Date(s.last_at).toLocaleString('fr-FR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})} · ${s.reason}`, 'err'));
+          return out('Tu peux faire /info pseudo, /reset pseudo confirmer, /banip pseudo… puis /suspects vider.');
         }
         case 'clearchat': { const r = await A.clearChat(); return r.ok ? out('🧹 Chat vidé pour tout le monde.', 'ok') : out('⛔ Refusé : ' + r.error, 'err'); }
         case 'ban': case 'unban': case 'unbanip': {
@@ -3894,6 +3917,7 @@ const ADMIN = (() => {
     ['banip', 'pseudo [raison]', 'bannir compte + IP + appareil'], ['unbanip', 'pseudo', 'tout débannir'],
     ['mute', 'pseudo [minutes]', 'retirer le chat'], ['unmute', 'pseudo', 'rendre le chat'],
     ['delchat', 'pseudo', 'effacer ses messages'], ['clearchat', '', 'vider tout le chat'],
+    ['suspects', '[vider]', 'suspects détectés par le bot'],
     ['joueurs', '', 'liste des joueurs'], ['annonce', 'texte', 'message pour tous'],
     ['event', 'argent|casino|dore valeur minutes', 'événement pour tous'], ['happyhour', '[minutes]', 'revenus ×2 + casino ×2'],
     ['pluie', 'montant', 'argent pour chaque joueur connecté'], ['roue', 'tous', 'recharger la roue de tout le monde'],
@@ -4225,7 +4249,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261112001946';
+const GAME_BUILD = '20261112002706';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

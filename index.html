@@ -750,6 +750,7 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
           <button type="button" data-c="sky_best" aria-pressed="false">🏗️ Gratte-ciel</button>
           <button type="button" data-c="tower_best" aria-pressed="false">🧱 Badi’Tour</button>
           <button type="button" data-c="stars" aria-pressed="false">★ Étoiles</button>
+          <button type="button" data-c="lifetime" aria-pressed="false">♾️ Lifetime</button>
         </div>
         <div class="lb" id="lbList"><div class="small">Chargement du classement…</div></div>
         <p class="small" id="lbStatus"></p>
@@ -762,7 +763,7 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
           <form id="accForm" class="accform" autocomplete="on">
             <label for="accName">Pseudo</label>
             <input id="accName" class="field" maxlength="16" autocomplete="username" placeholder="Ton pseudo">
-            <label for="accPass">Mot de passe (6 caractères minimum)</label>
+            <label for="accPass">Mot de passe (8 caractères, lettres + chiffres)</label>
             <input id="accPass" class="field" type="password" autocomplete="current-password" placeholder="••••••">
             <div id="accPass2Wrap" hidden style="display:contents"><label for="accPass2">Confirme le mot de passe</label><input id="accPass2" class="field" type="password" autocomplete="new-password" placeholder="••••••"></div>
             <button class="btn" id="accGo" type="submit">Se connecter</button>
@@ -870,7 +871,7 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
 </div>
 <button class="achip" id="aChip" type="button" hidden title="Console admin" aria-label="Ouvrir la console admin">⚡</button>
 <div class="admin" id="admin" hidden>
-  <div class="ahead"><b>⚡ Console admin</b><span class="small">tape /help</span><button type="button" id="aLock" title="Verrouiller la console (il faudra redonner ta phrase secrète)" aria-label="Verrouiller la console">🔒</button><button type="button" id="aClose" aria-label="Fermer la console">×</button></div>
+  <div class="ahead"><b>⚡ Console admin</b><span class="small">tape /help</span><button type="button" id="aClose" aria-label="Fermer la console">×</button></div>
   <div class="alog" id="aLog" aria-live="polite"></div>
   <div class="asug" id="aSug" role="listbox" aria-label="Suggestions" hidden></div>
   <div class="ahint" id="aHint"></div>
@@ -1320,17 +1321,15 @@ Règles pour toi : sois honnête sur les chiffres du joueur (utilise l'état fou
   const local = q => answerLocal(q).text;
   async function ask(q){
     q = q.trim(); if (!q) return;
-    // un message qui commence par « / » est masqué à l'écran (pour qu'on ne lise pas une phrase secrète par-dessus l'épaule)
+    // un message qui commence par « / » est masqué à l'écran
     add(/^\//.test(q) ? '/' + '•'.repeat(Math.min(12, Math.max(4, q.length - 1))) : q, 'u');
     const out = add('…', 'b');
-    // commande secrète : ouvre la console admin (le serveur vérifie ensuite que c'est bien un admin)
-    // Un message qui commence par « / » envoyé par un joueur connecté est vérifié par le serveur (phrase secrète de l'admin).
-    // Si ce n'est pas la bonne phrase ou pas le compte admin, Bad répond normalement : rien ne trahit qu'une commande existe.
+    // commande « / » : si le serveur a reconnu l'admin (compte Ryzer + son PC), elle part dans la console admin
     if (/^\s*\//.test(q) && LB.loggedIn()){
-      out.textContent = '…';
-      ADMIN.tryUnlock(q).then(ok => typeOut(out, ok ? '🔓 Mode admin activé ! Ta console est en bas à gauche.'
-        : (String(S.pseudo).toLowerCase() === 'ryzer' && LB.devState() !== 'ok') ? '🔒 Les pouvoirs admin ne marchent que sur ton PC verrouillé : va dans Classement → Ton compte → « Verrouiller mon compte sur cet ordinateur », puis réessaie.'
-        : answerLocal(q).text));
+      if (ADMIN.active()){ ADMIN.run(q); typeOut(out, '⚡ Commande envoyée dans ta console admin (en bas à gauche).'); return; }
+      typeOut(out, (String(S.pseudo).toLowerCase() === 'ryzer' && LB.devState() !== 'ok')
+        ? '🔒 Les pouvoirs admin marchent seulement sur ton PC verrouillé : va dans Classement → Ton compte → « Verrouiller mon compte sur cet ordinateur ».'
+        : answerLocal(q).text);
       return;
     }
     const loc = answerLocal(q);
@@ -2908,7 +2907,7 @@ const LB = (() => {
   let uid = null, sess = null, state = 'off', why = '', cat = 'fortune', lastScore = 0, lastCloud = 0, rows = [], mode = 'login', busyAcc = false;
   const AUTH_KEY = 'badinterCasino_session';
   const NAME_RE = /^[\p{L}\p{N} _-]{2,16}$/u, DOMAIN = '@joueurs.badinter-casino.app', SITE = 'https://badinter-clicker.github.io/';
-  const LABEL = {fortune: v => M(v), sky_best: v => '×' + fx(v), tower_best: v => v + ' étages', stars: v => v + ' ★'};
+  const LABEL = {fortune: v => M(v), sky_best: v => '×' + fx(v), tower_best: v => v + ' étages', stars: v => v + ' ★', lifetime: v => M(v)};
   const slug = n => n.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
   const accMsg = (t, bad) => { const el = $('#accMsg'); el.textContent = t; el.style.color = bad ? 'var(--red)' : 'var(--muted)'; };
   const onClaude = () => /claude|anthropic/i.test(location.hostname);
@@ -3055,9 +3054,6 @@ const LB = (() => {
   }
   const admin = {
     check: async () => { if (!uid) return false; const r = await rest('rpc/is_admin', {method: 'POST', body: '{}'}); return r.ok && r.data === true; },
-    unlock: async h => { if (!uid) return false; const r = await rest('rpc/admin_unlock', {method: 'POST', body: JSON.stringify({h})}); return r.ok && r.data === true; },
-    setSecret: async h => { const r = await rest('rpc/admin_set_secret', {method: 'POST', body: JSON.stringify({h})}); return r.ok && r.data === true; },
-    lock: () => rest('rpc/admin_lock', {method: 'POST', body: '{}'}),
     logs: async () => { const r = await rest('admin_log?select=action,detail,at&order=at.desc&limit=15'); return r.ok && Array.isArray(r.data) ? r.data : null; },
     find: async pseudo => {
       // on cherche dans les profils (pseudos protégés), puis dans le classement si besoin
@@ -3149,6 +3145,7 @@ const LB = (() => {
     S.owner = uid;
     Bad.say(`Connecté en tant que ${S.pseudo} ✅ Ta partie est sauvegardée en ligne automatiquement.`, true);
     render();
+    ADMIN.refresh();   // pouvoirs admin : automatiques sur le compte Ryzer, seulement sur son PC verrouillé (vérifié par le serveur)
     return true;
   }
   async function cloudSave(force, keepalive){
@@ -3165,11 +3162,11 @@ const LB = (() => {
     if (!force && Date.now() - lastScore < 60000) return;
     lastScore = Date.now();
     await rest('scores', {method: 'POST', headers: {'Prefer': 'resolution=merge-duplicates,return=minimal'},
-      body: JSON.stringify({user_id: uid, name: S.pseudo, fortune: Math.floor(S.pts + S.liv.bal), sky_best: Math.min(1000, Math.round(S.skyBest * 100) / 100), tower_best: S.towerBest, stars: S.stars, avatar: JSON.stringify(safeAv(S.avatar)), updated_at: new Date().toISOString()})});
+      body: JSON.stringify({user_id: uid, name: S.pseudo, fortune: Math.floor(S.pts + S.liv.bal), lifetime: Math.floor(S.all || 0), sky_best: Math.min(1000, Math.round(S.skyBest * 100) / 100), tower_best: S.towerBest, stars: S.stars, avatar: JSON.stringify(safeAv(S.avatar)), updated_at: new Date().toISOString()})});
   }
   async function refresh(){
     if (state !== 'ready') return render();
-    const r = await api(`/rest/v1/scores?select=user_id,name,fortune,sky_best,tower_best,stars,avatar&order=${cat}.desc&limit=50`, {headers: H()});
+    const r = await api(`/rest/v1/scores?select=user_id,name,fortune,sky_best,tower_best,stars,lifetime,avatar&order=${cat}.desc&limit=50`, {headers: H()});
     if (!r.ok){ $('#lbStatus').textContent = 'Impossible de charger le classement pour l’instant.'; return; }
     rows = Array.isArray(r.data) ? r.data : []; render();
   }
@@ -3182,13 +3179,17 @@ const LB = (() => {
     if (!NAME_RE.test(name) || s.length < 2){ accMsg('Pseudo invalide : entre 2 et 16 caractères (lettres, chiffres, espaces, - et _).', true); return; }
     if (pass.length < 6){ accMsg('Le mot de passe doit faire au moins 6 caractères.', true); return; }
     if (mode === 'signup' && pass !== $('#accPass2').value){ accMsg('Les deux mots de passe ne sont pas pareils.', true); return; }
-    if (mode === 'signup'){ const w = weakPass(pass, name); if (w){ accMsg(w, true); return; } }
+    if (mode === 'signup'){
+      const k = s.replace(/[^a-z0-9]/g, '');
+      if (k.includes('ryzer') || /^(admin|administrat|modo|moderat|staff|system|serveur|officiel)/.test(k) || k === 'bad' || k === 'badinter'){ accMsg('Ce pseudo est réservé, choisis-en un autre.', true); return; }
+      const w = weakPass(pass, name); if (w){ accMsg(w, true); return; }
+    }
     busyAcc = true; $('#accGo').disabled = true; accMsg('Un instant…');
     try {
       if (mode === 'signup'){
         const r = await api('/auth/v1/signup', {method: 'POST', headers: H(), body: JSON.stringify({email: s + DOMAIN, password: pass, data: {pseudo: name}})});
         if (!r.ok){
-          accMsg(r.status === 0 ? whyText() : /already|exists|registered/i.test(r.error) ? 'Ce pseudo est déjà pris, choisis-en un autre.' : /password/i.test(r.error) ? 'Mot de passe refusé : choisis-en un plus long ou plus compliqué.' : 'Création impossible : ' + r.error, true);
+          accMsg(r.status === 0 ? whyText() : /already|exists|registered/i.test(r.error) ? 'Ce pseudo est déjà pris, choisis-en un autre.' : /database error|saving new user|pseudo|refus/i.test(r.error) ? 'Pseudo refusé : il est déjà pris, ressemble trop à un autre joueur ou il est réservé. Choisis-en un autre.' : /password/i.test(r.error) ? 'Mot de passe refusé : choisis-en un plus long ou plus compliqué.' : 'Création impossible : ' + r.error, true);
           return;
         }
         if (!r.data || !r.data.access_token){ accMsg('Compte créé, mais la connexion automatique n’a pas marché. Clique sur « Se connecter ».', true); return; }
@@ -3225,7 +3226,7 @@ const LB = (() => {
   }
   async function logout(everywhere){
     await cloudSave(true);
-    if (uid) await rest('rpc/admin_lock', {method: 'POST', body: '{}'});   // on reverrouille les pouvoirs admin en partant
+    ADMIN.off();
     if (sess) await api('/auth/v1/logout' + (everywhere === true ? '?scope=global' : ''), {method: 'POST', headers: H(sess.access_token)});
     clearSess(); uid = null; blocked = null; devState = ''; $('#devCodeBox').hidden = true; $('#devCodeTxt').textContent = '';
     applyData(fresh()); S.tr = {prices: null, pos: {}}; save(); refreshAll();
@@ -3274,7 +3275,7 @@ const LB = (() => {
       const code = genCode();
       const r = await rest('rpc/device_lock', {method: 'POST', body: JSON.stringify({r: await sha256(normCode(code))})});
       if (!(r.ok && r.data === true)) return devSay('⛔ Verrouillage refusé par le serveur' + (r.error ? ' : ' + r.error : '.'), true);
-      devState = 'ok'; renderDev(); devSay('');
+      devState = 'ok'; renderDev(); devSay(''); ADMIN.refresh();
       $('#devCodeTxt').textContent = code; $('#devCodeBox').hidden = false;
       toast('🔒 Compte verrouillé sur cet ordinateur', 'Note bien ton code de secours !', 'var(--green)');
     } finally { b.disabled = false; }
@@ -3285,7 +3286,7 @@ const LB = (() => {
     b.dataset.armed = ''; b.textContent = 'Retirer le verrou';
     const r = await rest('rpc/device_unlock', {method: 'POST', body: '{}'});
     if (!(r.ok && r.data === true)) return devSay('⛔ Impossible de retirer le verrou' + (r.error ? ' : ' + r.error : '.'), true);
-    devState = 'libre'; $('#devCodeBox').hidden = true; $('#devCodeTxt').textContent = ''; renderDev(); devSay('🔓 Verrou retiré.');
+    devState = 'libre'; $('#devCodeBox').hidden = true; $('#devCodeTxt').textContent = ''; renderDev(); devSay('🔓 Verrou retiré.'); ADMIN.refresh();
   }
   async function devRecover(e){
     e.preventDefault();
@@ -3329,7 +3330,7 @@ const LB = (() => {
       });
     }
     $('#lbStatus').textContent = state === 'ready' ? (uid ? `Tu apparais sous le pseudo « ${S.pseudo} ». Tes scores sont envoyés toutes les minutes.` : 'Connecte-toi ou crée un compte pour apparaître dans le classement.') : '';
-    $('#lbMine').innerHTML = `<dt>Fortune (solde + livret)</dt><dd>${M(S.pts + S.liv.bal)}</dd><dt>Gratte-ciel</dt><dd>×${fx(S.skyBest)}</dd><dt>Badi’Tour</dt><dd>${S.towerBest} étages</dd><dt>Étoiles</dt><dd>${S.stars} ★</dd>`;
+    $('#lbMine').innerHTML = `<dt>Fortune (solde + livret)</dt><dd>${M(S.pts + S.liv.bal)}</dd><dt>Lifetime (gagné depuis le début)</dt><dd>${M(S.all || 0)}</dd><dt>Gratte-ciel</dt><dd>×${fx(S.skyBest)}</dd><dt>Badi’Tour</dt><dd>${S.towerBest} étages</dd><dt>Étoiles</dt><dd>${S.stars} ★</dd>`;
     if (state === 'error' && !uid) accMsg(whyText(), true);
     gate();
   }
@@ -3617,7 +3618,7 @@ const ADMIN = (() => {
   const box = $('#admin'), log = $('#aLog'), form = $('#aForm'), inp = $('#aIn'), chip = $('#aChip');
   const out = (t, cls) => {
     // refus du serveur = session admin verrouillée ou expirée (3 h) : on explique clairement
-    if (cls === 'err' && /row-level security|42501|permission denied|non connecté/i.test(t)) t = '⛔ Ta session admin est verrouillée, a expiré (3 h maximum) ou tu n’es pas sur ton PC verrouillé. Réécris ta phrase secrète à Bad pour la rouvrir.';
+    if (cls === 'err' && /row-level security|42501|permission denied|non connecté/i.test(t)) t = '⛔ Refusé par le serveur : les pouvoirs admin marchent seulement sur le compte Ryzer, sur ton PC verrouillé.';
     const d = document.createElement('div'); d.className = 'aline ' + (cls || ''); d.textContent = t; log.appendChild(d); while (log.children.length > 120) log.firstChild.remove(); log.scrollTop = log.scrollHeight; };
   const ITEMS = {trefle: 'clover', gains: 'gains', assurance: 'shield', turbo: 'turbo', revenus: 'prod', rumeur: 'rumor', aimant: 'magnet', detecteur: 'mines', roue: 'wheel'};
   const plain = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -3660,10 +3661,10 @@ const ADMIN = (() => {
     '/stop                            arrête tous les événements',
     '— Toi —',
     '/money montant                   régler ton propre solde',
-    '/secret nouvelle phrase          changer ta phrase secrète',
     '/logs                            journal de sécurité (essais, actions)',
-    '/lock                            verrouiller la console (bouton 🔒)',
-    'Sécurité : tes pouvoirs ne marchent QUE sur ton PC verrouillé, 3 h après ta phrase secrète ; 5 essais ratés = bloqué 15 min.',
+    '/lock                            fermer la console (bouton ⚡ pour la rouvrir)',
+    'Sécurité : plus de phrase secrète. Tes pouvoirs sont actifs automatiquement sur le compte Ryzer, et SEULEMENT sur ton PC verrouillé (vérifié par le serveur).',
+    'Astuce : tu peux aussi écrire une commande à Bad (ex : /joueurs), elle part dans ta console.',
     'Montants : 500, 20k, 3M, 2Md. Pseudo avec espaces : entre "guillemets".',
   ];
   function tokens(s){ const r = []; s.replace(/"([^"]*)"|(\S+)/g, (_, q, w) => { r.push(q !== undefined ? q : w); return ''; }); return r; }
@@ -3713,7 +3714,7 @@ const ADMIN = (() => {
           const r = cmd === 'ban' ? await A.ban(u.user_id, t.slice(2).join(' ').slice(0, 140)) : await A.unban(u.user_id);
           return r.ok ? out(cmd === 'ban' ? `⛔ ${u.name} est banni : il disparaît du classement et ne peut plus se connecter.` : `✅ ${u.name} est débanni.`, 'ok') : out('⛔ Refusé : ' + r.error, 'err');
         }
-        case 'lock': case 'verrouiller': { await lockNow(); return; }
+        case 'lock': case 'verrouiller': case 'fermer': { box.hidden = true; return; }
         case 'logs': case 'journal': {
           const l = await A.logs();
           if (!l) return out('⛔ permission denied', 'err');
@@ -3721,12 +3722,6 @@ const ADMIN = (() => {
           out('— Journal de sécurité (15 dernières actions) —');
           l.forEach(x => out(`${new Date(x.at).toLocaleString('fr-FR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})} · ${x.action}${x.detail ? ' · ' + x.detail.slice(0, 120) : ''}`, /incorrecte|refusé/.test(x.detail || '') ? 'err' : ''));
           return;
-        }
-        case 'secret': {
-          const phrase = secretNorm(t.slice(1).join(' '));
-          if (phrase.length < 12 || !/\s/.test(phrase)) return out('Choisis une phrase de plusieurs mots (12 caractères minimum), que personne ne peut deviner. Ex : /secret ma phrase super secrète. Ensuite, pour ouvrir la console, tu écriras à Bad : /ma phrase super secrète', 'err');
-          const ok = await A.setSecret(await sha(phrase));
-          return ok ? out(`🔒 Nouvelle phrase secrète enregistrée. Pour ouvrir la console, écris à Bad : /${phrase}   (note-la : elle n’est écrite nulle part, même pas dans le code).`, 'ok') : out('⛔ Refusé par le serveur.', 'err');
         }
         case 'bans': { const l = await A.bans(); return out(l.length ? '⛔ Bannis : ' + l.map(b => b.name + (b.reason ? ` (${b.reason})` : '')).join(' · ') : 'Personne n’est banni.'); }
         case 'happyhour': { const min = parseFloat(t[1]) || 10; const a = await A.event('argent', 2, min, 'Happy hour !'); const b = await A.event('casino', 2, min); return a.ok && b.ok ? out(`🎉 Happy hour : revenus ×2 et casino ×2 pour tous pendant ${min} min.`, 'ok') : out('⛔ Refusé : ' + (a.error || b.error), 'err'); }
@@ -3805,8 +3800,7 @@ const ADMIN = (() => {
     ['event', 'argent|casino|dore valeur minutes', 'événement pour tous'], ['happyhour', '[minutes]', 'revenus ×2 + casino ×2'],
     ['pluie', 'montant', 'argent pour chaque joueur connecté'], ['roue', 'tous', 'recharger la roue de tout le monde'],
     ['stop', '', 'arrêter tous les événements'], ['money', 'montant', 'régler ton propre solde'],
-    ['secret', 'nouvelle phrase', 'changer ta phrase secrète'],
-    ['logs', '', 'journal de sécurité'], ['lock', '', 'verrouiller la console'],
+    ['logs', '', 'journal de sécurité'], ['lock', '', 'fermer la console'],
     ['items', '', 'liste des objets'], ['help', '', 'toutes les commandes'],
   ];
   const PLAYER_CMDS = ['give', 'take', 'set', 'doubler', 'multiplier', 'vider', 'reset', 'livret', 'etoiles', 'fer', 'item', 'boost', 'info', 'ban', 'unban', 'banip', 'unbanip', 'mute', 'unmute', 'delchat'];
@@ -3875,31 +3869,23 @@ const ADMIN = (() => {
   });
   box.addEventListener('mousedown', e => { if (!e.target.closest('button, input')) setTimeout(() => inp.focus(), 0); });
   $('#aClose').onclick = () => { box.hidden = true; };
-  async function lockNow(){
-    await LB.admin.lock();
-    box.hidden = true; chip.hidden = true; log.innerHTML = '';
-    toast('🔒 Console verrouillée', 'Pour la rouvrir, réécris ta phrase secrète à Bad.', 'var(--green)');
-  }
-  $('#aLock').onclick = lockNow;
   const openBox = () => { box.hidden = false; if (!inp.value) inp.value = '/'; setTimeout(() => { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }, 0); };
   chip.onclick = openBox;
-  // La phrase secrète n'est jamais écrite dans le code : on envoie seulement son empreinte SHA-256 au serveur,
-  // qui vérifie à la fois le compte (admin) et l'empreinte.
-  const secretNorm = s => String(s).trim().toLowerCase().replace(/^\/+/, '').replace(/\s+/g, ' ');
-  async function sha(s){
-    const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-    return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
+  // Plus de phrase secrète : le serveur dit lui-même si ce compte est admin (compte Ryzer + son PC verrouillé).
+  // Rien dans le code ne permet de devenir admin : sans le compte ET le PC, le serveur refuse tout.
+  let active = false;
+  async function refresh(){
+    const ok = LB.loggedIn() ? await LB.admin.check() : false;
+    if (ok && !active){
+      active = true; chip.hidden = false;
+      if (!log.children.length) out('⚡ Mode admin actif (compte Ryzer sur ton PC). Tape une lettre pour voir les commandes (Tab ou Entrée pour compléter, ↑ pour l’historique).', 'ok');
+      loadNames();
+      toast('⚡ Mode admin actif', 'Ta console est en bas à gauche (bouton ⚡).', 'var(--gold)');
+    } else if (!ok && active) off();
   }
-  async function tryUnlock(q){
-    if (!LB.loggedIn() || !window.crypto || !crypto.subtle) return false;
-    let h; try { h = await sha(secretNorm(q)); } catch (e) { return false; }
-    if (!(await LB.admin.unlock(h))) return false;
-    box.hidden = false; chip.hidden = false;
-    if (!log.children.length) out('⚡ Console admin activée. Tape une lettre pour voir les commandes (Tab ou Entrée pour compléter, ↑ pour l’historique).', 'ok');
-    loadNames(); openBox();
-    return true;
-  }
-  return {tryUnlock, sha, secretNorm};
+  function off(){ active = false; box.hidden = true; chip.hidden = true; log.innerHTML = ''; }
+  function runFromBad(q){ openBox(); inp.value = '/'; return run(q.trim()); }
+  return {refresh, off, active: () => active, run: runFromBad};
 })();
 
 /* =================== Succès =================== */
@@ -4141,7 +4127,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261110162748';
+const GAME_BUILD = '20261111230639';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

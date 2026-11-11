@@ -139,6 +139,9 @@ p{margin:0;line-height:1.55;max-width:65ch}
 .row .nm{font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row small{display:block;font-size:12px;color:var(--muted);line-height:1.4}
 .row .cost{color:var(--green);font-weight:500}
+.selling .row .cost{color:var(--gold)}
+.buyctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.buyctl .field{width:92px;padding:6px 8px;font-size:13px}
 .row.poor .cost{color:var(--red)}
 .row .cnt{font-family:var(--f-disp);font-size:28px;color:var(--gold);font-variant-numeric:tabular-nums;min-width:36px;text-align:right}
 .empty{color:var(--muted);font-size:14px;padding:18px 4px;text-align:center}
@@ -560,12 +563,21 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
         <div class="pane" data-pane="inv" hidden>
           <div class="pane-h">
             <span>Ils rapportent de l’argent tout seuls, même quand tu joues ailleurs.</span>
-            <div class="seg" id="buyMode" aria-label="Combien en acheter">
-              <button type="button" data-m="1" aria-pressed="true">Acheter 1</button>
-              <button type="button" data-m="10" aria-pressed="false">Acheter 10</button>
-              <button type="button" data-m="max" aria-pressed="false">Le plus possible</button>
+            <div class="buyctl">
+              <div class="seg" id="tradeMode" aria-label="Acheter ou vendre">
+                <button type="button" data-t="buy" aria-pressed="true">🛒 Acheter</button>
+                <button type="button" data-t="sell" aria-pressed="false">💸 Vendre</button>
+              </div>
+              <div class="seg" id="buyMode" aria-label="Combien">
+                <button type="button" data-m="1" aria-pressed="true">×1</button>
+                <button type="button" data-m="10" aria-pressed="false">×10</button>
+                <button type="button" data-m="100" aria-pressed="false">×100</button>
+                <button type="button" data-m="max" aria-pressed="false">Max</button>
+              </div>
+              <input id="buyN" class="field" inputmode="numeric" maxlength="6" placeholder="Nombre…" aria-label="Nombre au choix" autocomplete="off">
             </div>
           </div>
+          <p class="small" id="sellNote" hidden style="margin:0 0 8px">💸 Mode vente : tu récupères 50 % du prix payé. « Max » vend tout.</p>
           <div id="bldList" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
         <div class="pane" data-pane="upg" hidden>
@@ -1465,14 +1477,34 @@ function catchGold(x, y){
 }
 
 /* =================== Investissements =================== */
-let buyMode = '1';
+let buyMode = '1', tradeMode = 'buy';
 $('#buyMode').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  buyMode = b.dataset.m;
+  buyMode = b.dataset.m; $('#buyN').value = '';
   $$('#buyMode button').forEach(x => x.setAttribute('aria-pressed', x === b));
   updateBuildings(true);
 });
-const wantK = b => buyMode === 'max' ? Math.max(1, maxK(b)) : +buyMode;
+// nombre au choix (ex : 34)
+$('#buyN').addEventListener('input', () => {
+  const el = $('#buyN'); el.value = el.value.replace(/\D/g, '').slice(0, 6);
+  const n = Math.floor(+el.value);
+  buyMode = n >= 1 ? String(n) : '1';
+  $$('#buyMode button').forEach(x => x.setAttribute('aria-pressed', n >= 1 ? 'false' : String(x.dataset.m === '1')));
+  updateBuildings(true);
+});
+// acheter ou vendre
+$('#tradeMode').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  tradeMode = b.dataset.t;
+  $$('#tradeMode button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  $('#sellNote').hidden = tradeMode !== 'sell';
+  $('#bldList').classList.toggle('selling', tradeMode === 'sell');
+  updateBuildings(true);
+});
+const wantK = b => tradeMode === 'sell' ? (buyMode === 'max' ? own(b.id) : Math.min(+buyMode, own(b.id)))
+  : buyMode === 'max' ? Math.max(1, maxK(b)) : +buyMode;
+// revente : 50 % du prix payé pour les derniers achetés (acheter puis revendre fait toujours perdre la moitié)
+const sellValue = (b, k) => k > 0 ? Math.floor(b.cost * 1.15 ** (own(b.id) - k) * (1.15 ** k - 1) / .15 * .5) : 0;
 const bldList = $('#bldList'); let bldShown = -1;
 function visibleCount(){ let n = 1; for (let i = 0; i < B.length; i++) if (own(B[i].id) > 0 || S.all >= B[i].cost * .5) n = Math.max(n, i + 2); return Math.min(B.length, n); }
 function updateBuildings(force){
@@ -1491,17 +1523,25 @@ function updateBuildings(force){
   const total = baseCps() || 1;
   bldList.querySelectorAll('.row').forEach(r => {
     const b = B.find(x => x.id === r.dataset.id), o = own(b.id), known = o > 0 || S.all >= b.cost * .5;
-    const k = wantK(b), p = priceK(b, k);
-    r.classList.toggle('poor', S.pts < p);
+    const k = wantK(b), sell = tradeMode === 'sell', p = sell ? sellValue(b, k) : priceK(b, k);
+    r.classList.toggle('poor', sell ? k < 1 : S.pts < p);
     r.querySelector('.ico').textContent = known ? b.icon : '❔';
     r.querySelector('.nm').textContent = known ? b.name : '???';
-    r.querySelector('.cost').textContent = `${k > 1 ? '×' + k + ' · ' : ''}${M(p)}`;
+    r.querySelector('.cost').textContent = sell ? (k >= 1 ? `Vendre ×${k} · +${M(p)}` : 'Rien à vendre') : `${k > 1 ? '×' + k + ' · ' : ''}${M(p)}`;
     const each = b.cps * bMult(b.id) * globalMult();
     r.querySelector('.rate').textContent = known ? `+${M(each)}/s chacun${o ? ' · ' + Math.round(o * each / total * 100) + ' % de tes revenus' : ''}` : 'Gagne plus d’argent pour le découvrir.';
     r.querySelector('.cnt').textContent = o;
   });
 }
 function buy(b){
+  if (tradeMode === 'sell'){
+    const k = wantK(b); if (k < 1){ tone(160, .08, 'square', .03); return; }
+    const v = sellValue(b, k);
+    S.own[b.id] = own(b.id) - k; S.pts += v;
+    tone(660, .07); tone(440, .09, 'triangle', .05, .06);
+    toast('💸 Vendu', `${k} × ${b.name} : +${M(v)} (50 % du prix payé)`, 'var(--gold)');
+    updateBuildings(); updateUpgrades(); return;
+  }
   const k = wantK(b), p = priceK(b, k);
   if (S.pts < p){ tone(160, .08, 'square', .03); return; }
   S.pts -= p; S.own[b.id] = own(b.id) + k;
@@ -4178,7 +4218,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261111235138';
+const GAME_BUILD = '20261111235507';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

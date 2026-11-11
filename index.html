@@ -411,6 +411,14 @@ body.gated .toasts{z-index:101}
 .mc-btn{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:85;display:flex;align-items:center;gap:7px;padding:9px 14px;border-radius:999px;border:1px solid var(--gold2);background:rgba(6,10,8,.94);color:var(--ink);font:600 14px var(--f-body,inherit);cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.5)}
 .mc-btn:hover{border-color:var(--gold)}
 .mc-btn kbd{font:600 11px ui-monospace,Consolas,monospace;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--muted)}
+.tablist{position:fixed;top:calc(env(safe-area-inset-top,0px) + 70px);left:50%;transform:translateX(-50%);z-index:97;width:min(460px,calc(100vw - 32px));max-height:70vh;overflow:auto;background:rgba(0,0,0,.78);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:8px;font:500 14px ui-monospace,Consolas,"Courier New",monospace;color:#fff;text-shadow:1px 1px 0 #000;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+.tl-h{text-align:center;color:var(--gold);padding:2px 0 8px;font-weight:700}
+.tl-row{display:grid;grid-template-columns:24px minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:3px 6px;border-radius:4px;background:rgba(255,255,255,.06);margin-top:3px;color:#aab}
+.tl-row.on{color:#fff}
+.tl-row.me .tl-nm{color:var(--gold)}
+.tl-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl-av svg{display:block;border-radius:50%}
+.tl-st,.tl-rb{font-size:12px;white-space:nowrap}
 .mc-badge{min-width:18px;padding:0 5px;border-radius:99px;background:var(--red);color:#fff;font-size:11px;line-height:18px;text-align:center}
 .devcode{font:700 22px/1.3 ui-monospace,Consolas,monospace;letter-spacing:2px;color:var(--gold);background:var(--bg2);border:1px dashed var(--gold);border-radius:10px;padding:12px;text-align:center;margin:8px 0;user-select:all;word-break:break-all}
 .lb{display:flex;flex-direction:column;gap:4px}
@@ -766,6 +774,8 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
           <button type="button" data-c="tower_best" aria-pressed="false">🧱 Badi’Tour</button>
           <button type="button" data-c="stars" aria-pressed="false">★ Étoiles</button>
           <button type="button" data-c="lifetime" aria-pressed="false">♾️ Lifetime</button>
+          <button type="button" data-c="rebirths" aria-pressed="false">♻️ Rebirth</button>
+          <button type="button" data-c="playtime" aria-pressed="false">⏱️ Temps de jeu</button>
         </div>
         <div class="lb" id="lbList"><div class="small">Chargement du classement…</div></div>
         <p class="small" id="lbStatus"></p>
@@ -990,7 +1000,7 @@ const AV_CATS = [
   {id:'bg', name:'Fond', items:[['vert','Tapis vert',0],['bleu','Bleu nuit',0],['rouge','Velours rouge',0],['violet','Violet',0],['or','Or',2],['galaxie','Galaxie',3],['casino','Casino',4]]},
   {id:'fx', name:'Effet', items:[['aucun','Aucun',0],['etincelles','Étincelles',2],['aura','Aura dorée',3],['flammes','Flammes',5]]},
 ];
-const fresh = () => ({pts:50, run:0, all:0, clicks:0, clickPts:0, own:{}, upg:[], ach:[], stars:0, fr:0, gold:0, maxCombo:0,
+const fresh = () => ({pts:50, run:0, all:0, playSec:0, clicks:0, clickPts:0, own:{}, upg:[], ach:[], stars:0, fr:0, gold:0, maxCombo:0,
   start:Date.now(), last:Date.now(), sound:true,
   casGames:0, casBet:0, casWon:0, casBig:0, casZero:0, casBJ:0, casCrash10:0, plinko16:0, scratchBig:0, hiloBest:0, horseLong:0,
   jackpot:5000, jackpots:0, trades:0, trPnl:0, trBest:0, liq:0, tr:{prices:null, pos:{}},
@@ -1336,7 +1346,7 @@ Règles pour toi : sois honnête sur les chiffres du joueur (utilise l'état fou
     {k:['autoclick','autoclicker','auto clic','autoclic','triche','hack','cheat','bloque'], a:() => '🚫 Les autoclickers sont interdits :\n• Plus de 16 clics par seconde, ou des clics trop réguliers = clics bloqués 15 secondes.\n• Les faux clics envoyés par un programme ne comptent pas.'},
     {k:['succes','achievement','trophee','badge','badges'], a:() => { const n = A.filter(a => !ach.has(a[0])).slice(0, 3); return `🏆 Tu as ${ach.size} succès sur ${A.length} (+${ach.size} % de revenus).${n.length ? '\nFaciles à débloquer bientôt :\n' + n.map(a => `• ${a[1]} : ${a[2]}`).join('\n') : ''}`; }},
     {k:['sauvegarde','sauvegarder','autre pc','transferer','autre ordi','autre appareil','telephone','perdre ma partie','compte','connexion','connecter','inscrire','inscription','mot de passe','mdp','pseudo','classement','top'], w:1.2, a:() => LB.loggedIn() ? `👤 Tu es connecté en tant que ${S.pseudo}.\n• Ta partie est sauvegardée en ligne toutes les 30 secondes.\n• Sur un autre ordinateur, connecte-toi avec ton pseudo et ton mot de passe pour la retrouver.\n• Ton score apparaît dans l’onglet « Classement ».` : '👤 Crée un compte (bouton « Se connecter » en haut, ou onglet « Classement ») :\n• Juste un pseudo et un mot de passe, pas d’e-mail.\n• Ta partie est sauvegardée en ligne et tu la retrouves sur n’importe quel ordinateur.\n• Tu apparais dans le classement.\nSans compte, la partie reste seulement dans ce navigateur.'},
-    {k:['temps de jeu','depuis combien','combien de temps'], a:() => `⏱️ Tu joues depuis ${fmtTime((Date.now() - S.start) / 1000)} au total.`},
+    {k:['temps de jeu','depuis combien','combien de temps'], a:() => `⏱️ Tu as joué ${fmtTime(S.playSec || 0)} au total (jeu ouvert). Ta partie a commencé il y a ${fmtTime((Date.now() - S.start) / 1000)}.`},
     {k:['clic','cliquer','combo','par clic'], a:() => `👆 Clique sur le casino pour gagner ${M(clickValue())} par clic.\n• Clique vite pour monter le combo (jusqu’à ×2).\n• Les améliorations « Gants », « Doigts en or »… doublent tes clics.\n• Le boost « Clics turbo » les multiplie par 5 pendant 1 minute.`},
     {k:['blague','drole','rigoler','marrant','raconte'], a:() => pick(['Pourquoi le croupier ne joue jamais à cache-cache ? Parce qu’on le retrouve toujours à la table 😄', 'Le BadCoin, c’est comme la cantine : on ne sait jamais ce qui va arriver jeudi.', 'J’ai demandé à la roulette un conseil… elle m’a dit de tourner la page.', 'Mon cheval préféré, c’est Pépito le Lent. Il arrive toujours… mais le lendemain.', 'Patate Volante a gagné une course. Personne ne sait comment, même pas elle.'])},
   ];
@@ -3009,7 +3019,7 @@ const LB = (() => {
   let uid = null, sess = null, state = 'off', why = '', cat = 'fortune', lastScore = 0, lastCloud = 0, rows = [], mode = 'login', busyAcc = false;
   const AUTH_KEY = 'badinterCasino_session';
   const NAME_RE = /^[\p{L}\p{N} _-]{2,16}$/u, DOMAIN = '@joueurs.badinter-casino.app', SITE = 'https://badinter-clicker.github.io/';
-  const LABEL = {fortune: v => M(v), sky_best: v => '×' + fx(v), tower_best: v => v + ' étages', stars: v => v + ' ★', lifetime: v => M(v)};
+  const LABEL = {fortune: v => M(v), sky_best: v => '×' + fx(v), tower_best: v => v + ' étages', stars: v => v + ' ★', lifetime: v => M(v), rebirths: v => v + ' ♻️', playtime: v => fmtTime(v)};
   const slug = n => n.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
   const accMsg = (t, bad) => { const el = $('#accMsg'); el.textContent = t; el.style.color = bad ? 'var(--red)' : 'var(--muted)'; };
   const onClaude = () => /claude|anthropic/i.test(location.hostname);
@@ -3276,11 +3286,11 @@ const LB = (() => {
     if (!force && Date.now() - lastScore < 60000) return;
     lastScore = Date.now();
     await rest('scores', {method: 'POST', headers: {'Prefer': 'resolution=merge-duplicates,return=minimal'},
-      body: JSON.stringify({user_id: uid, name: S.pseudo, fortune: Math.floor(S.pts + S.liv.bal), lifetime: Math.floor(S.all || 0), sky_best: Math.min(1000, Math.round(S.skyBest * 100) / 100), tower_best: S.towerBest, stars: S.stars, avatar: JSON.stringify(safeAv(S.avatar)), updated_at: new Date().toISOString()})});
+      body: JSON.stringify({user_id: uid, name: S.pseudo, fortune: Math.floor(S.pts + S.liv.bal), lifetime: Math.floor(S.all || 0), sky_best: Math.min(1000, Math.round(S.skyBest * 100) / 100), tower_best: S.towerBest, stars: S.stars, playtime: Math.floor(S.playSec || 0), rebirths: S.fr || 0, avatar: JSON.stringify(safeAv(S.avatar)), updated_at: new Date().toISOString()})});
   }
   async function refresh(){
     if (state !== 'ready') return render();
-    const r = await api(`/rest/v1/scores?select=user_id,name,fortune,sky_best,tower_best,stars,lifetime,avatar&order=${cat}.desc&limit=50`, {headers: H()});
+    const r = await api(`/rest/v1/scores?select=user_id,name,fortune,sky_best,tower_best,stars,lifetime,playtime,rebirths,avatar&order=${cat}.desc&limit=50`, {headers: H()});
     if (!r.ok){ $('#lbStatus').textContent = 'Impossible de charger le classement pour l’instant.'; return; }
     rows = Array.isArray(r.data) ? r.data : []; render();
   }
@@ -3444,7 +3454,7 @@ const LB = (() => {
       });
     }
     $('#lbStatus').textContent = state === 'ready' ? (uid ? `Tu apparais sous le pseudo « ${S.pseudo} ». Tes scores sont envoyés toutes les minutes.` : 'Connecte-toi ou crée un compte pour apparaître dans le classement.') : '';
-    $('#lbMine').innerHTML = `<dt>Fortune (solde + livret)</dt><dd>${M(S.pts + S.liv.bal)}</dd><dt>Lifetime (gagné depuis le début)</dt><dd>${M(S.all || 0)}</dd><dt>Gratte-ciel</dt><dd>×${fx(S.skyBest)}</dd><dt>Badi’Tour</dt><dd>${S.towerBest} étages</dd><dt>Étoiles</dt><dd>${S.stars} ★</dd>`;
+    $('#lbMine').innerHTML = `<dt>Fortune (solde + livret)</dt><dd>${M(S.pts + S.liv.bal)}</dd><dt>Lifetime (gagné depuis le début)</dt><dd>${M(S.all || 0)}</dd><dt>Gratte-ciel</dt><dd>×${fx(S.skyBest)}</dd><dt>Badi’Tour</dt><dd>${S.towerBest} étages</dd><dt>Étoiles</dt><dd>${S.stars} ★</dd><dt>Rebirths</dt><dd>${S.fr || 0} ♻️</dd><dt>Temps de jeu</dt><dd>${fmtTime(S.playSec || 0)}</dd>`;
     if (state === 'error' && !uid) accMsg(whyText(), true);
     gate();
   }
@@ -3480,7 +3490,7 @@ const LB = (() => {
   $('#lbCat').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; cat = b.dataset.c; $$('#lbCat button').forEach(x => x.setAttribute('aria-pressed', x === b)); refresh(); });
   $('#lbRefresh').onclick = () => { if (state === 'error'){ state = 'off'; init(); return; } sendScore(true); refresh(); };
   document.addEventListener('visibilitychange', () => { if (document.hidden) cloudSave(true, true); });
-  return {init, open: () => { init(); refresh(); render(); }, tick: () => { cloudSave(false); sendScore(false); poll(); }, render, cloudSave: () => cloudSave(true), loggedIn: () => !!uid, uid: () => uid, admin, rest, devState: () => devState, pushScore: () => { sendScore(true); refresh(); }};
+  return {init, open: () => { init(); refresh(); render(); }, tick: () => { cloudSave(false); sendScore(false); poll(); }, render, cloudSave: () => cloudSave(true), loggedIn: () => !!uid, uid: () => uid, admin, rest, devState: () => devState, roster: async () => { const r = await api('/rest/v1/scores?select=user_id,name,avatar,rebirths,updated_at&order=updated_at.desc&limit=100', {headers: H()}); return r.ok && Array.isArray(r.data) ? r.data : []; }, pushScore: () => { sendScore(true); refresh(); }};
 })();
 
 /* =================== Chat des joueurs (façon Minecraft) =================== */
@@ -3599,6 +3609,45 @@ const CHAT = (() => {
   }
   setInterval(tick, 1000);
   return {open: openChat, close: closeChat};
+})();
+
+/* =================== Liste des joueurs (touche Tab, façon Minecraft) =================== */
+// Rester appuyé sur Tab : tous les joueurs, en ligne (jeu ouvert, scores envoyés il y a moins de 2 min) ou hors ligne.
+const TABLIST = (() => {
+  const box = document.createElement('div');
+  box.className = 'tablist'; box.hidden = true; box.setAttribute('aria-live', 'polite');
+  document.body.appendChild(box);
+  let rows = [], lastFetch = 0, shown = false;
+  const ago = ms => { const s = Math.max(0, ms / 1000); return s < 3600 ? `${Math.max(1, Math.round(s / 60))} min` : s < 86400 ? `${Math.round(s / 3600)} h` : `${Math.round(s / 86400)} j`; };
+  function draw(){
+    const now = Date.now(), me = LB.uid();
+    const list = rows.map(r => ({...r, t: new Date(r.updated_at).getTime()})).map(r => ({...r, on: now - r.t < 150000 || r.user_id === me}));
+    list.sort((a, b) => (b.on - a.on) || a.name.localeCompare(b.name, 'fr'));
+    const nOn = list.filter(r => r.on).length;
+    box.innerHTML = '';
+    const h = document.createElement('div'); h.className = 'tl-h'; h.textContent = `👥 Joueurs — ${nOn} en ligne sur ${list.length}`; box.appendChild(h);
+    if (!list.length){ const e = document.createElement('div'); e.className = 'tl-row'; e.textContent = 'Chargement…'; box.appendChild(e); }
+    list.forEach(r => {
+      const d = document.createElement('div'); d.className = 'tl-row' + (r.on ? ' on' : '') + (r.user_id === me ? ' me' : '');
+      const av = document.createElement('span'); av.className = 'tl-av'; av.innerHTML = avatarSVG(r.avatar, 22);
+      const nm = document.createElement('span'); nm.className = 'tl-nm'; nm.textContent = r.name + (r.user_id === me ? ' (toi)' : '');
+      const rb = document.createElement('span'); rb.className = 'tl-rb'; rb.textContent = r.rebirths ? '♻️' + r.rebirths : '';
+      const st = document.createElement('span'); st.className = 'tl-st'; st.textContent = r.on ? '🟢 en ligne' : `⚫ vu il y a ${ago(now - r.t)}`;
+      d.append(av, nm, rb, st); box.appendChild(d);
+    });
+  }
+  async function load(){
+    if (Date.now() - lastFetch < 5000) return;
+    lastFetch = Date.now();
+    rows = await LB.roster(); if (shown) draw();
+  }
+  const typing = () => { const a = document.activeElement; return a && (/INPUT|TEXTAREA|SELECT/.test(a.tagName) || a.isContentEditable); };
+  function show(){ if (shown || !LB.loggedIn()) return; shown = true; box.hidden = false; draw(); load(); }
+  function hide(){ shown = false; box.hidden = true; }
+  document.addEventListener('keydown', e => { if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey || typing() || !LB.loggedIn()) return; e.preventDefault(); show(); });
+  document.addEventListener('keyup', e => { if (e.key === 'Tab') hide(); });
+  window.addEventListener('blur', hide);
+  return {show, hide};
 })();
 
 /* =================== Personnage personnalisable =================== */
@@ -4161,7 +4210,7 @@ function renderStats(){
     ['Parties de casino', fmt(S.casGames)], ['Total misé (jeux + BadCoin)', M(S.casBet)], ['Total récupéré', M(S.casWon)],
     ['Bilan casino', (bil >= 0 ? '+' : '') + M(bil)], ['Plus gros gain', M(S.casBig)], ['Jackpots', S.jackpots],
     ['Positions BadCoin fermées', S.trades], ['Bilan BadCoin', (S.trPnl >= 0 ? '+' : '') + M(S.trPnl)], ['Liquidations', S.liq],
-    ['Gains des mini-jeux', M(S.minisWon)], ['Argent sur le livret', M(S.liv.bal)], ['Intérêts du livret', M(S.liv.earned)], ['Autoclickers bloqués', S.cheats], ['Temps de jeu', fmtTime((Date.now() - S.start) / 1000)],
+    ['Gains des mini-jeux', M(S.minisWon)], ['Argent sur le livret', M(S.liv.bal)], ['Intérêts du livret', M(S.liv.earned)], ['Autoclickers bloqués', S.cheats], ['Temps de jeu', fmtTime(S.playSec || 0)], ['Partie commencée il y a', fmtTime((Date.now() - S.start) / 1000)], ['Rebirths', S.fr || 0],
   ];
   $('#statList').innerHTML = rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
 }
@@ -4241,6 +4290,7 @@ function ui(){
   const now = Math.floor(Date.now() / 1000);
   if (now !== secT){
     secT = now;
+    if (!document.hidden) S.playSec = (S.playSec || 0) + 1;   // temps de jeu réel (jeu ouvert et affiché)
     renderBoostBar();
     renderEvBar();
     livTick();
@@ -4313,7 +4363,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261112004237';
+const GAME_BUILD = '20261112004904';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

@@ -1187,7 +1187,7 @@ const Bad = (() => {
 Style : français, tutoiement, sympa mais surtout CLAIR. Réponds d'abord à la question en une phrase simple, puis si utile 2 à 4 puces commençant par « • ». Utilise les chiffres exacts du joueur. Mots simples, pas de jargon.
 Ce que contient le jeu :
 - Mon casino : on clique sur le bâtiment pour gagner de l'argent, on achète des investissements (revenus automatiques) et des améliorations. Des jetons dorés apparaissent (×7 revenus, gros gain, ou clics ×77). La franchise remet à zéro contre des étoiles (+4 % chacune, 1 étoile à 1 M€ gagnés au total, puis racine cubique).
-- Gratte-ciel (jeu de la salle de jeux) : on mise, un étage se balance au bout d'une grue, on appuie sur « Construire » pour le lâcher sur la tour. Chaque étage posé fait monter le multiplicateur (×1,02 ; ×1,06 ; ×1,12 ; ×1,2 ; ×1,3… ×2 au 9e étage, ×5,6 au 15e, jusqu'à ×60 au 23e étage). Le jeu est volontairement dur : le balancement est rapide et il faut viser précisément. On peut « Récupérer » à tout moment. Si l'étage rate la tour ou si la tour devient trop déséquilibrée et penche, elle s'écroule et on perd la mise. Le balancement devient plus fort et plus rapide en montant. Conseil : lâcher quand l'étage passe au milieu, encaisser avant que ça devienne trop dur.
+- Gratte-ciel (jeu de la salle de jeux) : on mise, un étage se balance au bout d'une grue, on appuie sur « Construire » pour le lâcher sur la tour. Chaque étage posé fait monter le multiplicateur (×1,01 ; ×1,03 ; ×1,06 ; ×1,1… ×2 au 13e étage, ×5 au 20e, jusqu'à ×10 au 23e étage). La mise maximum au Gratte-ciel est de 10 minutes de revenus (1 000 € minimum). Le jeu est volontairement dur : le balancement est rapide et il faut viser précisément. On peut « Récupérer » à tout moment. Si l'étage rate la tour ou si la tour devient trop déséquilibrée et penche, elle s'écroule et on perd la mise. Le balancement devient plus fort et plus rapide en montant. Conseil : lâcher quand l'étage passe au milieu, encaisser avant que ça devienne trop dur.
 - Salle de jeux : roulette simplifiée (on choisit un montant et une couleur : rouge ×2, noir ×2, vert ×36 ; 18 rouges, 18 noirs, 1 vert ; 1 fois sur 100, une case de la roue devient dorée juste avant le lancer et la bille tombe forcément dessus : la mise est multipliée par 75), machine à sous avec jackpot progressif (⭐⭐⭐), blackjack (×2, blackjack ×2,5, croupier tire jusqu'à 17), Crash (encaisser avant l'explosion), Mines (5×5), dés (gain = 97 / chance), pile ou face (×1,94), Plinko, ticket à gratter, Plus haut / Plus bas, course de chevaux. Tous ces jeux ont un léger avantage pour le casino (environ 3 à 5 %).
 - BadCoin : on parie que la cote d'une crypto fictive (BadCoin, LycéeCoin, CantineToken) monte ou descend, avec un levier jusqu'à ×25, encaissement auto (take profit) et coupure auto (stop loss). Frais 1 %. Liquidation si la perte atteint la mise. La courbe est verte si le joueur gagne, rouge s'il perd. Le cours est aléatoire : personne ne peut prévoir.
 - Mini-jeux d'adresse qui rapportent sans risque : Badi'Tour (empiler des étages), Pluie de billets, Réflexe du croupier.
@@ -1232,7 +1232,7 @@ Règles pour toi : sois honnête sur les chiffres du joueur (utilise l'état fou
     return '💡 Mes conseils pour toi :\n• ' + L.slice(0, 4).join('\n• ');
   }
   const RULE = {
-    tower: () => '🏗️ Gratte-ciel :\n• Choisis ta mise puis clique sur « Commencer ».\n• L’étage se balance au bout de la grue : appuie sur « Construire » quand il est au-dessus de la tour.\n• Chaque étage posé multiplie ta mise (×1,02 → ×1,06 → ×1,12… ×2 au 9e étage, jusqu’à ×60 au 23e).\n• Ça balance vite : il faut viser précisément.\n• Clique sur « Récupérer » quand tu veux encaisser.\n• Si l’étage rate la tour ou si elle penche trop, elle s’écroule et tu perds ta mise.\nAstuce : lâche quand l’étage passe au milieu de son balancement.',
+    tower: () => '🏗️ Gratte-ciel :\n• Choisis ta mise puis clique sur « Commencer ».\n• L’étage se balance au bout de la grue : appuie sur « Construire » quand il est au-dessus de la tour.\n• Chaque étage posé multiplie ta mise (×1,01 → ×1,03 → ×1,06… ×2 au 13e étage, jusqu’à ×10 au 23e).\n• Mise maximum : 10 minutes de tes revenus (1 000 € minimum).\n• Ça balance vite : il faut viser précisément.\n• Clique sur « Récupérer » quand tu veux encaisser.\n• Si l’étage rate la tour ou si elle penche trop, elle s’écroule et tu perds ta mise.\nAstuce : lâche quand l’étage passe au milieu de son balancement.',
     roulette: () => '🎡 Roulette :\n• Choisis ton montant et une couleur.\n• Rouge ou noir : ta mise ×2 (18 cases sur 37).\n• Vert : ta mise ×36 (1 case sur 37).\n• 🌟 Case dorée : 1 fois sur 100, une case devient dorée avant le lancer et la bille tombe forcément dessus : ta mise ×75 !\n• Puis clique sur « Lancer la roue ».',
     slots: () => `🎰 Machine à sous :\n• Clique sur « Jouer » : 3 rouleaux tournent.\n• 3 symboles pareils : de ×4 (🍒) à ×80 (⭐).\n• Une paire : ×1,25.\n• ⭐⭐⭐ gagne aussi le jackpot, qui vaut ${M(S.jackpot)} en ce moment.`,
     bj: () => '🃏 Blackjack :\n• Le but : avoir plus de points que le croupier sans dépasser 21.\n• Figures = 10, As = 1 ou 11.\n• « Prendre une carte » pour te rapprocher de 21, « Je m’arrête là » pour garder ton total.\n• Victoire ×2, blackjack (21 en 2 cartes) ×2,5, égalité = mise rendue.\nAstuce : arrête-toi à partir de 17, double ta mise sur 10 ou 11.',
@@ -1680,13 +1680,19 @@ const CAS = (() => {
   ];
   $('#lobby').innerHTML = GAMES.map(([id, ic, nm, d]) => `<button type="button" class="gcard" data-g="${id}" aria-pressed="${id === game}"><span>${ic}</span>${nm}<small class="small" style="font-size:11px;font-weight:400">${d}</small></button>`).join('');
   const bet = () => { const v = parseAmt(betIn.value); return isFinite(v) && v >= 1 ? Math.floor(v) : 0; };
-  function showBet(){ const v = bet(), el = $('#betFmt'); el.textContent = v ? `= ${M(v)}` + (v > S.pts ? ' · pas assez !' : '') : 'mise invalide'; el.classList.toggle('bad', !v || v > S.pts); }
+  function showBet(){
+    const v = bet(), el = $('#betFmt'), mx = game === 'tower' ? towerMax() : Infinity;
+    el.textContent = v ? `= ${M(v)}` + (v > S.pts ? ' · pas assez !' : v > mx ? ` · max ${M(mx)} ici !` : game === 'tower' ? ` · max ${M(mx)}` : '') : 'mise invalide';
+    el.classList.toggle('bad', !v || v > S.pts || v > mx);
+  }
   const setBet = v => { betIn.value = String(Math.max(1, Math.floor(v))); showBet(); };
   betIn.addEventListener('input', showBet);
   $('#betBar').addEventListener('click', e => {
     const b = e.target.closest('[data-b]'); if (!b) return;
     const v = bet() || 1, a = b.dataset.b;
-    setBet(a === 'min' ? 1 : a === 'half' ? v / 2 : a === 'dbl' ? v * 2 : a === 'p10' ? S.pts * .1 : S.pts);
+    let nv = a === 'min' ? 1 : a === 'half' ? v / 2 : a === 'dbl' ? v * 2 : a === 'p10' ? S.pts * .1 : S.pts;
+    if (game === 'tower') nv = Math.min(nv, towerMax());
+    setBet(nv);
   });
   function take(v){
     if (!v){ toast('Mise invalide', 'Écris un nombre, par exemple 500, 20k ou 3M.', 'var(--red)'); return false; }
@@ -2281,14 +2287,17 @@ const CAS = (() => {
   }
 
   /* ----- Gratte-ciel (l'étage se balance au bout de la grue, on empile, on encaisse) ----- */
-  const TM = [1.02, 1.06, 1.12, 1.2, 1.3, 1.42, 1.58, 1.78, 2, 2.3, 2.7, 3.2, 3.8, 4.6, 5.6, 7, 9, 12, 16, 22, 30, 42, 60];
+  const TM = [1.01, 1.03, 1.06, 1.1, 1.15, 1.21, 1.28, 1.36, 1.45, 1.55, 1.7, 1.85, 2, 2.25, 2.5, 2.8, 3.2, 3.6, 4.2, 5, 6, 7.5, 10];
+  // Mise maximum = 10 minutes de tes revenus (1 000 € minimum) : les gains suivent ta production, pas ta fortune,
+  // donc impossible de faire exploser son argent en misant tout à chaque partie.
+  const towerMax = () => Math.max(1000, Math.floor(baseCps() * 600));
   const GW = 360, GH = 560, FW = 118, FH = 52, GROUND = 520, PX = 180, PY = -70, ROPE = 180;
   let tw = null, twRaf = 0, twLast = 0;
   const twMult = () => tw && tw.floors.length > 1 ? TM[tw.floors.length - 2] : 1;
   function renderTower(){
     area.innerHTML = `<div class="felt">
       <canvas id="twC" class="cv" width="${GW}" height="${GH}" style="max-width:420px;margin:0 auto;touch-action:manipulation;cursor:pointer"></canvas>
-      <div class="cas-msg" id="casMsg">Choisis ta mise puis clique sur « Commencer ». Appuie sur « Construire » (ou clique sur la tour, ou Espace) quand l’étage qui se balance est au-dessus de la tour. Chaque étage posé multiplie ta mise. Si un étage tombe ou si la tour penche trop, tu perds !</div>
+      <div class="cas-msg" id="casMsg">Choisis ta mise puis clique sur « Commencer ». Appuie sur « Construire » (ou clique sur la tour, ou Espace) quand l’étage qui se balance est au-dessus de la tour. Chaque étage posé multiplie ta mise (×2 au 13e étage, ×10 maximum). Mise max : 10 minutes de tes revenus. Si un étage tombe ou si la tour penche trop, tu perds !</div>
       <div class="btns c"><button class="btn ghost" id="twCash" type="button" disabled>Récupérer</button><button class="btn" id="twBuild" type="button" style="min-width:170px">Commencer</button></div>
     </div>`;
     if (!tw || tw.state === 'over' || tw.state === 'won') twReset();
@@ -2312,7 +2321,9 @@ const CAS = (() => {
   function twAction(){
     if (game !== 'tower') return;
     if (tw.state === 'idle' || tw.state === 'over' || tw.state === 'won'){
-      const v = bet(); if (!take(v)) return;
+      const v = bet(), mx = towerMax();
+      if (v > mx){ setBet(Math.min(mx, S.pts)); toast('Mise trop grosse', `Au Gratte-ciel, la mise max est de ${M(mx)} (10 minutes de tes revenus). Ta mise a été ajustée.`, 'var(--red)'); tone(160, .08, 'square', .03); return; }
+      if (!take(v)) return;
       twReset(); tw.bet = v; tw.state = 'swing'; tw.tau = rand(0, 2); busy = true;
       msg(`Mise : ${M(v)}. Premier étage : ×${fx(TM[0])}`, ''); tone(500, .06); twButtons(); return;
     }
@@ -3932,7 +3943,7 @@ const A = [
   ['j12','Outsider','Gagner avec un cheval à grosse cote.',()=>S.horseLong>=1],
   ['j16','Case dorée','Faire tomber la bille sur la case dorée de la roulette (×75).',()=>(S.rlGolden||0)>=1],
   ['j13','Promoteur','Récupérer à ×5 ou plus au Gratte-ciel.',()=>S.skyBest>=5],
-  ['j14','Tour de Babel','Récupérer à ×30 ou plus au Gratte-ciel.',()=>S.skyBest>=30],
+  ['j14','Tour de Babel','Récupérer à ×10 au Gratte-ciel (23 étages).',()=>S.skyBest>=10],
   ['t1','Trader débutant','Fermer une position BadCoin.',()=>S.trades>=1],
   ['t2','Loup de Wall Street','Gagner 100 000 € sur une seule position.',()=>S.trBest>=1e5],
   ['t3','Liquidé','Se faire liquider (ça arrive à tout le monde).',()=>S.liq>=1],
@@ -4127,7 +4138,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261111230639';
+const GAME_BUILD = '20261111231406';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

@@ -2080,7 +2080,7 @@ const CAS = (() => {
     mn = {bet: v, n: mnCount, mines, rev: new Set(), over: false, boom: -1, shown: -1, f: f0}; busy = true;
     // avec 1 seule bombe, le détecteur la trouverait : plus aucun risque donc plus de gain → on le garde en réserve
     if (S.mineDetect > 0 && mnCount > 1){ S.mineDetect--; mn.shown = [...mines][Math.floor(Math.random() * mines.size)]; }
-    msg(`Choisis une case. Premier diamant : ×${fx(mnM(1))}${mn.shown >= 0 ? ' · 🔍 Le détecteur a trouvé une bombe (multiplicateurs ajustés) !' : ''}${mn.f < 1 ? ` · grosse mise : ${fx(mn.f * 100, 0)} % du gain` : ''}`, ''); mnDraw();
+    msg(`Choisis une case. Premier diamant : ×${fx(mnM(1))}${mn.shown >= 0 ? ' · 🔍 Le détecteur a trouvé une bombe (multiplicateurs ajustés) !' : S.mineDetect > 0 && mnCount === 1 ? ' · 🔍 Avec 1 seule bombe, le détecteur reste en réserve (sinon plus aucun risque) : choisis 3 bombes ou plus pour l’utiliser.' : ''}${mn.f < 1 ? ` · grosse mise : ${fx(mn.f * 100, 0)} % du gain` : ''}`, ''); mnDraw();
   }
   function mnPick(i){
     if (!mn || mn.over || mn.rev.has(i) || i === mn.shown) return;
@@ -2104,7 +2104,7 @@ const CAS = (() => {
       h += `<button type="button" class="${cls}" data-i="${i}" ${dis ? 'disabled' : ''} aria-label="Case ${i + 1}">${txt}</button>`;
     }
     g.innerHTML = h;
-    const b = $('#mnBtn'); if (b) b.textContent = mn && !mn.over ? (mn.rev.size ? `Arrêter et récupérer ${M(Math.floor(mn.bet * mnMult(mn.rev.size, mn.n)))}` : 'Clique sur une case…') : 'Commencer';
+    const b = $('#mnBtn'); if (b) b.textContent = mn && !mn.over ? (mn.rev.size ? `Arrêter et récupérer ${M(Math.floor(mn.bet * mnM(mn.rev.size)))}` : 'Clique sur une case…') : 'Commencer';
   }
 
   /* ----- Plinko ----- */
@@ -4225,7 +4225,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261112000750';
+const GAME_BUILD = '20261112001946';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

@@ -1051,9 +1051,9 @@ function parseAmt(s){
 const vipLevel = () => { let l = 0; VIP.forEach(([t], i) => { if (S.casBet >= t) l = i; }); return l; };
 function bMult(id){ let m = 1; for (let i = 0; i < 5; i++) if (upg.has(id + i)) m *= 2; return m; }
 const bonusMult = () => frMult() * (1 + .01 * ach.size) * (1 + .05 * vipLevel());
-// Plus tu es riche, plus c'est dur de gagner (pas de maximum, pas de fin du jeu) : gains complets jusqu'à 1 000 Md,
-// puis ils baissent doucement (fortune ×10 → gains ×0,56 ; ×1 000 → ×0,18 ; ×1 million → ×0,03).
-const WF_START = 1e12, WF_K = .25;
+// Plus tu es riche, plus c'est dur de gagner (pas de maximum, pas de fin du jeu) : gains complets jusqu'à 1 Bd (1 million de Md),
+// puis ils baissent doucement (fortune ×10 → gains ×0,79 ; ×1 000 → ×0,5 ; ×1 million → ×0,25 ; ×1 milliard → ×0,13).
+const WF_START = 1e15, WF_K = .1;
 const wealthFactor = () => { const f = S.pts + (S.liv ? S.liv.bal : 0); return !(f > WF_START) ? 1 : Math.pow(WF_START / f, WF_K); };
 function globalMult(){ let m = bonusMult(); for (const id of ['m0','m1','m2','m3','m4']) if (upg.has(id)) m *= 1.25; return m; }
 function baseCps(){ let s = 0; for (const b of B) s += own(b.id) * b.cps * bMult(b.id); return s * globalMult(); }
@@ -1240,7 +1240,7 @@ const Bad = (() => {
   const RULES = `Tu es Bad, la mascotte IA du jeu « Badinter Casino » (aussi appelé Badinter Clicker), un jeu web avec de l'ARGENT FICTIF créé par Ryzer, un élève du lycée Badinter. Tu parles à un joueur (souvent un lycéen).
 Style : français, tutoiement, sympa mais surtout CLAIR. Réponds d'abord à la question en une phrase simple, puis si utile 2 à 4 puces commençant par « • ». Utilise les chiffres exacts du joueur. Mots simples, pas de jargon.
 Ce que contient le jeu :
-- Mon casino : on clique sur le bâtiment pour gagner de l'argent, on achète des investissements (revenus automatiques) et des améliorations. Des jetons dorés apparaissent (×7 revenus, gros gain, ou clics ×77). Le rebirth (franchise) remet à zéro l'argent, le livret, les investissements et les améliorations ; en échange, revenus et clics ×1,1 de plus pour toujours (×1,1 ; ×1,21 ; ×1,33…) et 5 étoiles pour le perso. Le 1er rebirth coûte 1 Md (solde + livret), puis chaque rebirth coûte 10 fois plus. Il n'y a pas de maximum d'argent, mais au-delà de 1 000 Md, plus le joueur est riche, plus ses gains baissent (fortune ×10 → gains ×0,56) : à un moment le rebirth devient obligatoire.
+- Mon casino : on clique sur le bâtiment pour gagner de l'argent, on achète des investissements (revenus automatiques) et des améliorations. Des jetons dorés apparaissent (×7 revenus, gros gain, ou clics ×77). Le rebirth (franchise) remet à zéro l'argent, le livret, les investissements et les améliorations ; en échange, revenus et clics ×1,1 de plus pour toujours (×1,1 ; ×1,21 ; ×1,33…) et 5 étoiles pour le perso. Le 1er rebirth coûte 1 Md (solde + livret), puis chaque rebirth coûte 10 fois plus. Il n'y a pas de maximum d'argent, mais au-delà de 1 Bd (1 million de Md), plus le joueur est riche, plus ses gains baissent doucement (fortune ×10 → gains ×0,79 ; ×1 000 → ×0,5) : le rebirth aide à repartir plus fort.
 - Gratte-ciel (jeu de la salle de jeux) : on mise, un étage se balance au bout d'une grue, on appuie sur « Construire » pour le lâcher sur la tour. Chaque étage posé fait monter le multiplicateur (×1,01 ; ×1,03 ; ×1,06 ; ×1,1… ×2 au 13e étage, ×5 au 20e, jusqu'à ×10 au 23e étage). Il n'y a pas de mise maximum, mais plus la mise est grosse, plus les multiplicateurs baissent : ils sont complets jusqu'à la mise normale (1 h de revenus ou 3 % de l'argent du joueur, 100 000 € minimum), puis le bonus diminue (mise ×4 → bonus divisé par 2), sans descendre sous ×2,8 au dernier étage. Le jeu est volontairement dur : le balancement est rapide et il faut viser précisément. On peut « Récupérer » à tout moment. Si l'étage rate la tour ou si la tour devient trop déséquilibrée et penche, elle s'écroule et on perd la mise. Le balancement devient plus fort et plus rapide en montant. Conseil : lâcher quand l'étage passe au milieu, encaisser avant que ça devienne trop dur.
 - Salle de jeux : roulette simplifiée (on choisit un montant et une couleur : rouge ×2, noir ×2, vert ×36 ; 18 rouges, 18 noirs, 1 vert ; 1 fois sur 100, une case de la roue devient dorée juste avant le lancer et la bille tombe forcément dessus : la mise est multipliée par 75), machine à sous avec jackpot progressif (⭐⭐⭐), blackjack (×2, blackjack ×2,5, croupier tire jusqu'à 17), Crash (encaisser avant l'explosion), Mines (5×5), dés (gain = 97 / chance), pile ou face (×1,98), Plinko, ticket à gratter, Plus haut / Plus bas, course de chevaux. Tous ces jeux ont un léger avantage pour le casino (environ 3 à 5 %).
 - Règles anti-abus du casino (pour tous les jeux) : jusqu'à la « mise normale » (la plus grande somme entre 1 h de revenus, 3 % de l'argent du joueur et 100 000 €) le gain est complet ; au-delà le gain est réduit (mise ×4 → gain divisé par 2, mise ×100 → gain divisé par 10). Pas de mise maximum ni de plafond. Même avec une mise énorme, le bonus garde au moins 20 % (au Gratte-ciel, le 23e étage vaut toujours au moins ×2,8). La chance (fer à cheval, trèfle, assurance, gains boostés) compte moins quand la mise dépasse 30 min de revenus. Au Mines, le détecteur de bombe ajuste les multiplicateurs. Avec 1 seule bombe, le détecteur n'est pas utilisé (il la trouverait et il n'y aurait plus de risque, donc plus de gain : seulement ×0,97).
@@ -4419,7 +4419,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261112123755';
+const GAME_BUILD = '20261112124018';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

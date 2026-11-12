@@ -42,11 +42,6 @@
 html{background:var(--bg)}
 body{
   background-color:var(--bg); color:var(--ink); font-family:var(--f-body); font-size:15px;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%,rgba(242,195,90,.13),transparent 70%),
-    repeating-linear-gradient(45deg,rgba(255,255,255,.018) 0 2px,transparent 2px 22px),
-    repeating-linear-gradient(-45deg,rgba(255,255,255,.018) 0 2px,transparent 2px 22px);
-  background-attachment:fixed;
   min-height:100vh;
   padding-left:max(16px,env(safe-area-inset-left,0px));
   padding-right:max(16px,env(safe-area-inset-right,0px));
@@ -111,6 +106,19 @@ p{margin:0;line-height:1.55;max-width:65ch}
 .building:active{transform:scale(.95)}
 .building svg{width:min(360px,80vw);height:auto;display:block;filter:drop-shadow(0 14px 22px rgba(0,0,0,.6))}
 .building.pop svg{animation:pop .18s ease-out}
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;transform:translateZ(0);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%,rgba(242,195,90,.13),transparent 70%),
+    repeating-linear-gradient(45deg,rgba(255,255,255,.018) 0 2px,transparent 2px 22px),
+    repeating-linear-gradient(-45deg,rgba(255,255,255,.018) 0 2px,transparent 2px 22px)}
+/* lueurs : 5 dessins par seconde au lieu de 60 (même effet, beaucoup moins de travail) */
+.buff,.evchip,.hub.gold{animation-timing-function:steps(5)}
+/* mode fluide (automatique sur les PC lents, ou bouton « Fluide ») : on coupe les effets décoratifs */
+body.low-fx::before{display:none}
+body.low-fx .bulb,body.low-fx .buff,body.low-fx .evchip,body.low-fx .hub.gold,body.low-fx .annico,body.low-fx .goldchip,body.low-fx .wgold{animation:none!important}
+body.low-fx .welcome{backdrop-filter:none;background:rgba(5,10,8,.95)}
+body.low-fx .mc-line,body.low-fx .tablist,body.low-fx .float{text-shadow:none}
+body.low-fx .wbox,body.low-fx .card,body.low-fx .mc-btn,body.low-fx .tablist{box-shadow:none}
 .building.locked{filter:grayscale(1) brightness(.6)}
 @keyframes pop{50%{transform:scale(1.04)}}
 .bulb{fill:#ffe9a8;animation:blink 1s steps(1) infinite}
@@ -496,6 +504,7 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
         <button class="hav" id="hav" type="button" aria-label="Mon perso" title="Mon perso"></button>
         <button class="chip" id="accChip" type="button" style="color:var(--gold);border-color:var(--gold2)">👤 Se connecter</button>
         <button class="chip" id="soundBtn" type="button">Son : oui</button>
+        <button class="chip" id="fxBtn" type="button" title="Coupe les effets décoratifs pour que le jeu soit fluide sur les PC lents">Fluide : auto</button>
         <button class="chip" id="saveBtn" type="button">Sauvegarder</button>
       </div>
     </div>
@@ -4363,7 +4372,34 @@ function ui(){
 }
 let lastWall = Date.now(), acc = 0, trAcc = 0, trUi = 0, shownPts = 0, ptsTxt = '';
 const ptsEl = $('#pts');
-let lastFrameT = 0;
+let lastFrameT = 0, lastPtsT = 0;
+// Mode fluide : « auto » (activé tout seul si le jeu tourne à moins de 20 images/s), « oui » ou « non »
+const FX_KEY = 'badinterCasino_fx';
+let fxMode = 'auto', fpsN = 0, fpsT0 = 0, fpsLow = 0;
+try { fxMode = localStorage.getItem(FX_KEY) || 'auto'; } catch (e) {}
+function applyFx(){
+  const low = fxMode === 'oui' || (fxMode === 'auto' && fpsLow >= 2);
+  document.body.classList.toggle('low-fx', low);
+  $('#fxBtn').textContent = 'Fluide : ' + (fxMode === 'auto' ? (low ? 'auto (activé)' : 'auto') : fxMode);
+}
+function fpsWatch(now){
+  if (fxMode !== 'auto' || document.hidden || fpsLow >= 2) return;
+  if (!fpsT0){ fpsT0 = now; fpsN = 0; return; }
+  fpsN++;
+  if (now - fpsT0 >= 3000){
+    const fps = fpsN * 1000 / (now - fpsT0);
+    fpsLow = fps < 20 ? fpsLow + 1 : 0; fpsT0 = now; fpsN = 0;
+    if (fpsLow >= 2){ applyFx(); toast('🐢 Mode fluide activé', 'Ton appareil est un peu lent : les effets décoratifs sont coupés pour que le jeu soit plus fluide.', 'var(--gold)'); }
+  }
+}
+document.addEventListener('visibilitychange', () => { fpsT0 = 0; });
+$('#fxBtn').onclick = () => {
+  fxMode = fxMode === 'auto' ? 'oui' : fxMode === 'oui' ? 'non' : 'auto';
+  if (fxMode !== 'auto') fpsLow = 0;
+  try { localStorage.setItem(FX_KEY, fxMode); } catch (e) {}
+  applyFx();
+};
+applyFx();
 function frame(){
   lastFrameT = performance.now();
   const now = Date.now(), dt = (now - lastWall) / 1000; lastWall = now;
@@ -4371,7 +4407,8 @@ function frame(){
   // Le solde défile en douceur vers sa vraie valeur
   shownPts += (S.pts - shownPts) * Math.min(1, dt * 12);
   if (Math.abs(S.pts - shownPts) < Math.max(.05, Math.abs(S.pts) * 1e-5)) shownPts = S.pts;
-  const pt = M(shownPts); if (pt !== ptsTxt){ ptsTxt = pt; ptsEl.textContent = pt; }
+  if (now - lastPtsT > 66){ lastPtsT = now; const pt = M(shownPts); if (pt !== ptsTxt){ ptsTxt = pt; ptsEl.textContent = pt; } }
+  fpsWatch(now);
   if (now - lastClick > 700) combo = Math.max(0, combo - dt * 25);
   spawnGold();
   acc += dt; if (acc >= .1){ acc = 0; ui(); }
@@ -4419,7 +4456,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261112124018';
+const GAME_BUILD = '20261112125701';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

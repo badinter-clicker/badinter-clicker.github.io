@@ -1798,6 +1798,7 @@ const CAS = (() => {
   });
   function take(v){
     if (!v){ toast('Mise invalide', 'Écris un nombre, par exemple 500, 20k ou 3M.', 'var(--red)'); return false; }
+    if (v > S.pts && v <= S.pts * (1 + 1e-9)) v = S.pts;   // tolérance d'arrondi sur les sommes géantes
     if (v > S.pts){ toast('Pas assez d’argent', `Il te manque ${M(v - S.pts)}.`, 'var(--red)'); tone(160, .08, 'square', .03); return false; }
     S.pts -= v; S.casBet += v; return true;
   }
@@ -2659,6 +2660,7 @@ const TR = window.TR = (() => {
     if (pos[cur]){ toast('Position déjà ouverte', 'Ferme ta position sur cette crypto avant d’en ouvrir une autre.', 'var(--red)'); return; }
     let v = stake();
     if (!v){ toast('Montant invalide', 'Écris un nombre, par exemple 500 ou 2k.', 'var(--red)'); return; }
+    v = fitTo(v, S.pts);   // tolérance d'arrondi sur les sommes géantes
     if (v > S.pts){ toast('Pas assez d’argent', `Tu as ${M(S.pts)}.`, 'var(--red)'); return; }
     // si la mise + 1 % de frais dépasse ton solde, on ajuste la mise au maximum possible
     if (v * 1.01 > S.pts){ v = Math.floor(S.pts / 1.01 * 100) / 100; if (v < 1){ toast('Pas assez d’argent', 'Il te faut au moins 1,01 € (mise + 1 % de frais).', 'var(--red)'); return; } stakeIn.value = String(v); }
@@ -2972,9 +2974,14 @@ function livTick(silent){
   if (paid > 0 && !silent){ toast('🏦 Intérêts du livret', `+${M(paid)} versés sur ton livret (taux ${fx((L.hist[0] ? L.hist[0].r : livRate(L.streak - 1)) * 100, 2)} %).`, 'var(--green)'); tone(784, .1, 'sine', .05); tone(1046, .14, 'sine', .05, .09); }
   return paid;
 }
-const livParse = el => { const v = parseAmt(el.value); return isFinite(v) && v > 0 ? Math.floor(v * 100) / 100 : 0; };
+// arrondi au centime seulement pour les « petites » sommes : sur les sommes énormes (Sx, Sxd…), ×100 ÷100 donnait un nombre
+// très légèrement PLUS GRAND que le solde, d'où « Pas assez d'argent » en voulant tout déposer
+const cents = v => v < 1e13 ? Math.floor(v * 100) / 100 : v;
+// petite tolérance d'arrondi : « tout mon argent » doit toujours marcher, même avec des sommes géantes
+const fitTo = (v, max) => v > max && v <= max * (1 + 1e-9) ? max : v;
+const livParse = el => { const v = parseAmt(el.value); return isFinite(v) && v > 0 ? cents(v) : 0; };
 function livDeposit(){
-  const v = livParse($('#livDepIn'));
+  const v = fitTo(livParse($('#livDepIn')), S.pts);
   if (!v){ toast('Montant invalide', 'Écris un nombre, par exemple 500 ou 2k.', 'var(--red)'); return; }
   if (v > S.pts){ toast('Pas assez d’argent', `Tu as ${M(S.pts)} sur toi.`, 'var(--red)'); return; }
   livTick();
@@ -2986,7 +2993,7 @@ function livDeposit(){
   renderLivret();
 }
 function livWithdraw(){
-  const L = S.liv, v = Math.min(livParse($('#livWdIn')), L.bal);
+  const L = S.liv, v = Math.min(fitTo(livParse($('#livWdIn')), L.bal), L.bal);
   if (!v){ toast('Montant invalide', L.bal ? 'Écris combien tu veux retirer.' : 'Ton livret est vide.', 'var(--red)'); return; }
   livTick();
   L.bal = Math.max(0, L.bal - v); S.pts += v;
@@ -2999,7 +3006,7 @@ function livQuick(box, input, fromLivret){
   box.addEventListener('click', e => {
     const b = e.target.closest('[data-b]'); if (!b) return;
     const base = fromLivret ? S.liv.bal : S.pts, a = b.dataset.b;
-    input.value = String(Math.floor((a === 'p10' ? base * .1 : a === 'p50' ? base * .5 : base) * 100) / 100);
+    input.value = String(cents(a === 'p10' ? base * .1 : a === 'p50' ? base * .5 : base));
     renderLivret();
   });
 }
@@ -3020,7 +3027,7 @@ function renderLivret(){
   $('#livStreak').textContent = L.bal > 0 ? fmtTime(L.streak * 600 + (LIV_P - left) / 1000) : '—';
   $('#livEarned').textContent = M(L.earned);
   $('#livBar').style.width = (L.bal > 0 ? (1 - left / LIV_P) * 100 : 0) + '%';
-  const d = livParse($('#livDepIn')), w = livParse($('#livWdIn'));
+  const d = fitTo(livParse($('#livDepIn')), S.pts), w = livParse($('#livWdIn'));
   const df = $('#livDepFmt'); df.textContent = d ? `= ${M(d)}` + (d > S.pts ? ' · pas assez !' : '') : 'montant invalide'; df.classList.toggle('bad', !d || d > S.pts);
   const wf = $('#livWdFmt'); wf.textContent = w ? `= ${M(Math.min(w, L.bal))}` : 'montant invalide'; wf.classList.toggle('bad', !w || !L.bal);
   $('#livHist').innerHTML = L.hist.length ? L.hist.map(h => `<div><span>${new Date(h.t).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})} · ${fx(h.r * 100, h.r < .001 ? 4 : 2)} %</span><b style="color:var(--green)">+${M(h.g)}</b></div>`).join('') : '<div class="small">Aucun versement pour l’instant.</div>';
@@ -3212,6 +3219,13 @@ const LB = (() => {
     },
     clearSuspects: () => rest('suspects?hits=gte.0', {method: 'DELETE'}),
     rename: (oldName, nm) => rest('rpc/admin_rename', {method: 'POST', body: JSON.stringify({old_name: oldName, nm})}),
+    isModo: async () => { if (!uid) return false; const r = await rest('rpc/is_moderator', {method: 'POST', body: '{}'}); return r.ok && r.data === true; },
+    setModo: (name, on) => rest('rpc/admin_set_modo', {method: 'POST', body: JSON.stringify({pname: name, on_: on})}),
+    modos: async () => {
+      const r = await rest('moderators?select=user_id'); if (!r.ok || !Array.isArray(r.data)) return null; if (!r.data.length) return [];
+      const p = await rest('profiles?select=name&user_id=in.(' + r.data.map(m => m.user_id).join(',') + ')');
+      return p.ok && Array.isArray(p.data) ? p.data.map(x => x.name) : [];
+    },
     bans: async () => {
       const r = await rest('banned?select=user_id,reason,net,created_at&order=created_at.desc');
       if (!r.ok || !Array.isArray(r.data) || !r.data.length) return [];
@@ -3483,7 +3497,7 @@ const LB = (() => {
         d.append(rk, nm, sc); list.appendChild(d);
       });
     }
-    $('#lbStatus').textContent = state === 'ready' ? (uid ? (ADMIN.active() ? '⚡ Tu es admin : tu n’apparais pas dans le classement (personne ne te voit). Il se met à jour tout seul, en direct.' : `Tu apparais sous le pseudo « ${S.pseudo} ». Le classement se met à jour tout seul, en direct.`) : 'Connecte-toi ou crée un compte pour apparaître dans le classement.') : '';
+    $('#lbStatus').textContent = state === 'ready' ? (uid ? (ADMIN.role() === 'admin' ? '⚡ Tu es admin : tu n’apparais pas dans le classement (personne ne te voit). Il se met à jour tout seul, en direct.' : `Tu apparais sous le pseudo « ${S.pseudo} ». Le classement se met à jour tout seul, en direct.`) : 'Connecte-toi ou crée un compte pour apparaître dans le classement.') : '';
     $('#lbMine').innerHTML = `<dt>Fortune (solde + livret)</dt><dd>${M(S.pts + S.liv.bal)}</dd><dt>Lifetime (gagné depuis le début)</dt><dd>${M(S.all || 0)}</dd><dt>Gratte-ciel</dt><dd>×${fx(S.skyBest)}</dd><dt>Badi’Tour</dt><dd>${S.towerBest} étages</dd><dt>Étoiles</dt><dd>${S.stars} ★</dd><dt>Rebirths</dt><dd>${S.fr || 0} ♻️</dd><dt>Temps de jeu</dt><dd>${fmtTime(S.playSec || 0)}</dd>`;
     if (state === 'error' && !uid) accMsg(whyText(), true);
     gate();
@@ -3929,6 +3943,10 @@ const ADMIN = (() => {
     '— 🤖 Bot modérateur (automatique) —',
     '/suspects                        joueurs qui ont envoyé une fortune impossible',
     '/renommer "ancien" Nouveau       changer le pseudo d’un joueur (gros mots interdits)',
+    '— 🛡️ Modérateurs (pouvoirs limités, actions visibles dans /logs) —',
+    '/modo pseudo                     nommer un modérateur',
+    '/unmodo pseudo                   lui retirer ce rôle',
+    '/modos                           liste des modérateurs',
     '/suspects vider                  effacer la liste',
     'Le bot rend muet 10 min un joueur qui envoie 3 insultes en 10 min (visible dans /logs).',
     '/joueurs                         liste des joueurs',
@@ -3956,9 +3974,17 @@ const ADMIN = (() => {
     const cmd = plain(t[0]).replace(/^\//, '');
     out('> ' + line, 'cmd');
     const A = LB.admin;
+    if (role === 'modo' && !MODO_OK.includes(cmd)) return out('⛔ Commande réservée à l’admin. Tape /help pour voir les tiennes.', 'err');
+    if (role === 'modo' && cmd === 'suspects' && plain(t[1]) === 'vider') return out('⛔ Seul l’admin peut vider la liste.', 'err');
     try {
       switch (cmd){
-        case 'help': case 'aide': HELP.forEach(h => out(h)); return;
+        case 'help': case 'aide': (role === 'modo' ? MODO_HELP : HELP).forEach(h => out(h)); return;
+        case 'modo': case 'unmodo': {
+          const who = t.slice(1).join(' '); if (!who) return out(`Ex : /${cmd} pseudo`, 'err');
+          const r = await A.setModo(who, cmd === 'modo');
+          return r.ok ? out(cmd === 'modo' ? `🛡️ ${r.data} est maintenant modérateur (muet 30 min max, effacer des messages, voir les suspects). Ses actions apparaissent dans /logs.` : `✅ ${r.data} n’est plus modérateur.`, 'ok') : out('⛔ ' + r.error, 'err');
+        }
+        case 'modos': { const l = await A.modos(); return l === null ? out('⛔ permission denied', 'err') : out(l.length ? '🛡️ Modérateurs : ' + l.join(' · ') : 'Aucun modérateur pour l’instant.'); }
         case 'items': return out('Boosts : trefle, gains, assurance, turbo, revenus, rumeur (nombre = minutes), aimant, detecteur, roue · fer (niveaux du fer à cheval) · investissements : ' + B.map(b => b.id).join(', '));
         case 'money': { const v = parseAmt(t[1]); if (!isFinite(v)) return out('Ex : /money 1M', 'err'); S.pts = v; save(); return out('Ton solde : ' + M(v), 'ok'); }
         case 'joueurs': { const p = await A.players(); return out(p.length ? p.map(x => `${x.name} (${M(x.fortune)})`).join(' · ') : 'Aucun joueur avec un compte.'); }
@@ -3982,7 +4008,7 @@ const ADMIN = (() => {
           const who = t[1]; if (!who) return out(`Ex : /${cmd} pseudo` + (cmd === 'mute' ? ' 10' : ''), 'err');
           const u = await A.find(who); if (!u) return out(`Joueur « ${who} » introuvable.`, 'err');
           if (cmd === 'mute'){
-            const min = Math.min(10080, Math.max(1, parseFloat(t[2]) || 10));
+            const min = Math.min(role === 'modo' ? 30 : 10080, Math.max(1, parseFloat(t[2]) || 10));
             const r = await A.mute(u.user_id, min);
             return r.ok ? out(`🔇 ${u.name} ne peut plus écrire dans le chat pendant ${min} min.`, 'ok') : out('⛔ Refusé : ' + r.error, 'err');
           }
@@ -4095,6 +4121,7 @@ const ADMIN = (() => {
     ['mute', 'pseudo [minutes]', 'retirer le chat'], ['unmute', 'pseudo', 'rendre le chat'],
     ['delchat', 'pseudo', 'effacer ses messages'], ['clearchat', '', 'vider tout le chat'],
     ['suspects', '[vider]', 'suspects détectés par le bot'], ['renommer', 'pseudo nouveau', 'changer son pseudo'],
+    ['modo', 'pseudo', 'nommer un modérateur'], ['unmodo', 'pseudo', 'retirer un modérateur'], ['modos', '', 'liste des modérateurs'],
     ['joueurs', '', 'liste des joueurs'], ['annonce', 'texte', 'message pour tous'],
     ['event', 'argent|casino|dore valeur minutes', 'événement pour tous'], ['happyhour', '[minutes]', 'revenus ×2 + casino ×2'],
     ['pluie', 'montant', 'argent pour chaque joueur connecté'], ['roue', 'tous', 'recharger la roue de tout le monde'],
@@ -4102,13 +4129,25 @@ const ADMIN = (() => {
     ['logs', '', 'journal de sécurité'], ['lock', '', 'fermer la console'],
     ['items', '', 'liste des objets'], ['help', '', 'toutes les commandes'],
   ];
-  const PLAYER_CMDS = ['give', 'take', 'set', 'doubler', 'multiplier', 'vider', 'reset', 'livret', 'etoiles', 'fer', 'item', 'boost', 'info', 'ban', 'unban', 'banip', 'unbanip', 'mute', 'unmute', 'delchat', 'renommer'];
+  const PLAYER_CMDS = ['give', 'take', 'set', 'doubler', 'multiplier', 'vider', 'reset', 'livret', 'etoiles', 'fer', 'item', 'boost', 'info', 'ban', 'unban', 'banip', 'unbanip', 'mute', 'unmute', 'delchat', 'renommer', 'modo', 'unmodo'];
+  // le modérateur : pouvoirs limités (vérifiés aussi par le serveur)
+  const MODO_OK = ['help', 'aide', 'mute', 'unmute', 'delchat', 'suspects', 'joueurs', 'info', 'lock', 'fermer', 'verrouiller'];
+  const MODO_HELP = [
+    '— 🛡️ Console modérateur —',
+    '/mute pseudo [minutes]           lui retirer le chat (30 min maximum)',
+    '/unmute pseudo                   lui rendre le chat',
+    '/delchat pseudo                  effacer ses messages du chat',
+    '/suspects                        joueurs repérés par le bot',
+    '/joueurs · /info pseudo          voir les joueurs et leurs scores',
+    'Tu ne peux ni donner, ni retirer, ni bannir : c’est réservé à l’admin. Tes actions sont visibles par l’admin.',
+  ];
+  let role = '';
   const sug = $('#aSug'), hint = $('#aHint');
   let names = [], sel = 0, opts = [], hist = [], hi = -1;
   async function loadNames(){ try { names = (await LB.admin.players()).map(p => p.name); } catch (e) {} }
   function suggestions(v){
     const parts = v.slice(1).split(' '), last = plain(parts[parts.length - 1]), cmd = plain(parts[0]), i = parts.length - 1;
-    if (i === 0) return CMDS.filter(c => c[0].startsWith(last)).map(c => ({fill: c[0], label: '/' + c[0], desc: (c[1] ? c[1] + ' · ' : '') + c[2]}));
+    if (i === 0) return CMDS.filter(c => c[0].startsWith(last) && (role !== 'modo' || MODO_OK.includes(c[0]))).map(c => ({fill: c[0], label: '/' + c[0], desc: (c[1] ? c[1] + ' · ' : '') + c[2]}));
     const pick = (list, desc) => list.filter(x => plain(x).startsWith(last)).map(x => ({fill: /\s/.test(x) ? `"${x}"` : x, label: x, desc}));
     if (i === 1 && PLAYER_CMDS.includes(cmd)) return pick(cmd === 'boost' ? ['tous', ...names] : names, 'joueur');
     if (i === 1 && cmd === 'event') return pick(['argent', 'casino', 'dore'], 'type d’événement');
@@ -4174,17 +4213,22 @@ const ADMIN = (() => {
   // Rien dans le code ne permet de devenir admin : sans le compte ET le PC, le serveur refuse tout.
   let active = false;
   async function refresh(){
-    const ok = LB.loggedIn() ? await LB.admin.check() : false;
-    if (ok && !active){
-      active = true; chip.hidden = false;
-      if (!log.children.length) out('⚡ Mode admin actif (compte Ryzer sur ton PC). Tape une lettre pour voir les commandes (Tab ou Entrée pour compléter, ↑ pour l’historique).', 'ok');
+    const isA = LB.loggedIn() ? await LB.admin.check() : false;
+    const isM = !isA && LB.loggedIn() ? await LB.admin.isModo() : false;
+    const r = isA ? 'admin' : isM ? 'modo' : '';
+    if (r && (!active || r !== role)){
+      if (active) off();
+      active = true; role = r; chip.hidden = false;
+      chip.textContent = r === 'modo' ? '🛡️' : '⚡';
+      const title = box.querySelector('.ahead b'); if (title) title.textContent = r === 'modo' ? '🛡️ Console modérateur' : '⚡ Console admin';
+      if (!log.children.length) out(r === 'modo' ? '🛡️ Tu es modérateur. Tape /help pour voir tes commandes (muet 30 min max, effacer des messages, voir les suspects).' : '⚡ Mode admin actif (compte Ryzer sur ton PC). Tape une lettre pour voir les commandes (Tab ou Entrée pour compléter, ↑ pour l’historique).', 'ok');
       loadNames();
-      toast('⚡ Mode admin actif', 'Ta console est en bas à gauche (bouton ⚡).', 'var(--gold)');
-    } else if (!ok && active) off();
+      toast(r === 'modo' ? '🛡️ Tu es modérateur' : '⚡ Mode admin actif', `Ta console est en bas à gauche (bouton ${r === 'modo' ? '🛡️' : '⚡'}).`, 'var(--gold)');
+    } else if (!r && active) off();
   }
-  function off(){ active = false; box.hidden = true; chip.hidden = true; log.innerHTML = ''; }
+  function off(){ active = false; role = ''; box.hidden = true; chip.hidden = true; log.innerHTML = ''; }
   function runFromBad(q){ openBox(); inp.value = '/'; return run(q.trim()); }
-  return {refresh, off, active: () => active, run: runFromBad};
+  return {refresh, off, active: () => active, role: () => role, run: runFromBad};
 })();
 
 /* =================== Succès =================== */
@@ -4456,7 +4500,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261112130756';
+const GAME_BUILD = '20261112195452';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

@@ -767,7 +767,7 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
   <section class="view" data-view="top" hidden>
     <div class="trade">
       <div class="card">
-        <div class="pane-h"><h2>Classement des joueurs</h2><button class="chip" id="lbRefresh" type="button">↻ Actualiser</button></div>
+        <div class="pane-h"><h2>Classement des joueurs</h2><span class="chip" id="lbLive" title="Le classement se met à jour tout seul">🔴 En direct</span></div>
         <div class="seg" id="lbCat">
           <button type="button" data-c="fortune" aria-pressed="true">💰 Fortune</button>
           <button type="button" data-c="sky_best" aria-pressed="false">🏗️ Gratte-ciel</button>
@@ -810,6 +810,13 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
         <div id="accIn" hidden>
           <p>Connecté en tant que <b id="accWho" style="color:var(--gold)"></b></p>
           <p class="small" id="accSync">☁️ Ta partie est sauvegardée en ligne toutes les 30 secondes.</p>
+          <h3>✏️ Changer de pseudo</h3>
+          <form id="renForm" class="accform" autocomplete="off">
+            <label for="renIn">Nouveau pseudo</label>
+            <input id="renIn" class="field" maxlength="16" placeholder="Ton nouveau pseudo">
+            <button class="btn" type="submit" id="renBtn">Changer de pseudo</button>
+            <p class="small" id="renMsg">Le 1er changement est gratuit, ensuite il coûte des étoiles ★ (de plus en plus cher).</p>
+          </form>
           <h3>🔒 Sécurité du compte</h3>
           <form id="pwForm" class="accform" autocomplete="off">
             <label for="pwNew">Nouveau mot de passe</label>
@@ -1706,6 +1713,7 @@ function renderEvBar(){
 const casRef = (pool = S.pts) => Math.max(1e5, Math.floor(baseCps() * 3600), Math.floor(pool * .03));
 // Minimum : même avec une mise énorme, le bonus garde 20 % (au Gratte-ciel, le 23e étage vaut toujours au moins ×2,8).
 const CAS_MIN = .2;
+const pctTxt = f => fx(f * 100, f < .001 ? 3 : f < .1 ? 1 : 0);
 const casFactor = (v, pool) => !v || v <= casRef(pool) ? 1 : Math.max(CAS_MIN, Math.sqrt(casRef(pool) / v));
 // La chance (fer à cheval, trèfle, assurance, gains boostés) ne suit que tes revenus : sinon, en misant une part
 // de sa fortune à chaque partie (ex : Mines à 24 bombes), elle rendait le casino gagnant à coup sûr.
@@ -1768,8 +1776,8 @@ const CAS = (() => {
   $('#lobby').innerHTML = GAMES.map(([id, ic, nm, d]) => `<button type="button" class="gcard" data-g="${id}" aria-pressed="${id === game}"><span>${ic}</span>${nm}<small class="small" style="font-size:11px;font-weight:400">${d}</small></button>`).join('');
   const bet = () => { const v = parseAmt(betIn.value); return isFinite(v) && v >= 1 ? Math.floor(v) : 0; };
   function showBet(){
-    const v = bet(), el = $('#betFmt'), f = casFactor(v);
-    el.textContent = v ? `= ${M(v)}` + (v > S.pts ? ' · pas assez !' : f < 1 ? ` · grosse mise : ${fx(f * 100, 0)} % du gain` + (game === 'tower' ? ` (max ×${fx(1 + 9 * f)})` : '') + ` · mise normale : ${M(casRef())}` : '') : 'mise invalide';
+    const v = bet(), el = $('#betFmt'), f = casFactor(v) * wealthFactor();
+    el.textContent = v ? `= ${M(v)}` + (v > S.pts ? ' · pas assez !' : f < .995 ? ` · tu gardes ${pctTxt(f)} % du gain` + (game === 'tower' ? ` (max ×${fx(1 + 9 * f)})` : '') + (wealthFactor() < .995 ? ' · 📉 richesse' : ` · mise normale : ${M(casRef())}`) : '') : 'mise invalide';
     el.classList.toggle('bad', !v || v > S.pts);
   }
   const setBet = v => { betIn.value = String(Math.max(1, Math.floor(v))); showBet(); };
@@ -1791,7 +1799,7 @@ const CAS = (() => {
     if (g !== 'tower' && g !== 'mines' && won > staked){ const f = casFactor(staked, S.pts + staked); if (f < 1){ won = staked + Math.floor((won - staked) * f); text += ` (grosse mise : ${Math.round(f * 100)} % du gain)`; } }
     const adj = luckAdjust(staked, won); won = adj.won; text += adj.note;
     // plus tu es riche, plus c'est dur de gagner (aussi au casino)
-    if (won > staked){ const wf = wealthFactor(); if (wf < 1){ won = staked + Math.floor((won - staked) * wf); text += ` (richesse : ${fx(wf * 100, wf < .1 ? 1 : 0)} % du gain)`; } }
+    if (g !== 'tower' && g !== 'mines' && won > staked){ const wf = wealthFactor(); if (wf < 1){ won = staked + Math.floor((won - staked) * wf); text += ` (richesse : ${fx(wf * 100, wf < .1 ? 1 : 0)} % du gain)`; } }
     if (won > staked && EV.casino > 1){ const ex = Math.floor((won - staked) * (EV.casino - 1)); won += ex; text += ` ⚡ Admin abuse : +${M(ex)}`; }
     if (won > 0){ S.pts += won; S.casWon += won; S.casBig = Math.max(S.casBig, won); }
     if (won > staked){
@@ -2100,12 +2108,12 @@ const CAS = (() => {
     mnDraw();
   }
   function mnStart(){
-    const v = bet(), f0 = casFactor(v); if (!take(v)) return;
+    const v = bet(), f0 = casFactor(v) * wealthFactor(); if (!take(v)) return;
     const mines = new Set(); while (mines.size < mnCount) mines.add(Math.floor(Math.random() * 25));
     mn = {bet: v, n: mnCount, mines, rev: new Set(), over: false, boom: -1, shown: -1, f: f0}; busy = true;
     // avec 1 seule bombe, le détecteur la trouverait : plus aucun risque donc plus de gain → on le garde en réserve
     if (S.mineDetect > 0 && mnCount > 1){ S.mineDetect--; mn.shown = [...mines][Math.floor(Math.random() * mines.size)]; }
-    msg(`Choisis une case. Premier diamant : ×${fx(mnM(1))}${mn.shown >= 0 ? ' · 🔍 Le détecteur a trouvé une bombe (multiplicateurs ajustés) !' : S.mineDetect > 0 && mnCount === 1 ? ' · 🔍 Avec 1 seule bombe, le détecteur reste en réserve (sinon plus aucun risque) : choisis 3 bombes ou plus pour l’utiliser.' : ''}${mn.f < 1 ? ` · grosse mise : ${fx(mn.f * 100, 0)} % du gain` : ''}`, ''); mnDraw();
+    msg(`Choisis une case. Premier diamant : ×${fx(mnM(1))}${mn.shown >= 0 ? ' · 🔍 Le détecteur a trouvé une bombe (multiplicateurs ajustés) !' : S.mineDetect > 0 && mnCount === 1 ? ' · 🔍 Avec 1 seule bombe, le détecteur reste en réserve (sinon plus aucun risque) : choisis 3 bombes ou plus pour l’utiliser.' : ''}${mn.f < 1 ? ` · tu gardes ${pctTxt(mn.f)} % du gain (grosse mise ou richesse)` : ''}`, ''); mnDraw();
   }
   function mnPick(i){
     if (!mn || mn.over || mn.rev.has(i) || i === mn.shown) return;
@@ -2387,7 +2395,7 @@ const CAS = (() => {
   // au-delà il baisse (mise ×4 → bonus ÷2, mise ×100 → bonus ÷10). Tout miser ne fait donc plus exploser la fortune.
   const towerFactor = casFactor;
   const twPlaying = () => tw && (tw.state === 'swing' || tw.state === 'drop');
-  const tmAt = i => { const m = TM[i]; if (!m) return 0; const f = twPlaying() && tw.f ? tw.f : towerFactor(bet()); return 1 + (m - 1) * f; };
+  const tmAt = i => { const m = TM[i]; if (!m) return 0; const f = twPlaying() && tw.f ? tw.f : towerFactor(bet()) * wealthFactor(); return 1 + (m - 1) * f; };
   const GW = 360, GH = 560, FW = 118, FH = 52, GROUND = 520, PX = 180, PY = -70, ROPE = 180;
   let tw = null, twRaf = 0, twLast = 0;
   const twMult = () => tw && tw.floors.length > 1 ? tmAt(tw.floors.length - 2) : 1;
@@ -2418,9 +2426,9 @@ const CAS = (() => {
   function twAction(){
     if (game !== 'tower') return;
     if (tw.state === 'idle' || tw.state === 'over' || tw.state === 'won'){
-      const v = bet(), f0 = towerFactor(v); if (!take(v)) return;
+      const v = bet(), f0 = towerFactor(v) * wealthFactor(); if (!take(v)) return;
       twReset(); tw.bet = v; tw.f = f0; tw.state = 'swing'; tw.tau = rand(0, 2); busy = true;
-      msg(`Mise : ${M(v)}. Premier étage : ×${fx(tmAt(0))}` + (tw.f < 1 ? ` · grosse mise : ${Math.round(tw.f * 100)} % du bonus des multiplicateurs` : ''), ''); tone(500, .06); twButtons(); return;
+      msg(`Mise : ${M(v)}. Premier étage : ×${fx(tmAt(0))}` + (tw.f < 1 ? ` · tu gardes ${pctTxt(tw.f)} % du gain (grosse mise ou richesse)` : ''), ''); tone(500, .06); twButtons(); return;
     }
     if (tw.state !== 'swing') return;
     const s = twSwing();
@@ -3194,6 +3202,7 @@ const LB = (() => {
       return r.data.map(s => ({...s, name: nm[s.user_id] || s.user_id.slice(0, 8)}));
     },
     clearSuspects: () => rest('suspects?hits=gte.0', {method: 'DELETE'}),
+    rename: (oldName, nm) => rest('rpc/admin_rename', {method: 'POST', body: JSON.stringify({old_name: oldName, nm})}),
     bans: async () => {
       const r = await rest('banned?select=user_id,reason,net,created_at&order=created_at.desc');
       if (!r.ok || !Array.isArray(r.data) || !r.data.length) return [];
@@ -3270,6 +3279,7 @@ const LB = (() => {
     Bad.say(`Connecté en tant que ${S.pseudo} ✅ Ta partie est sauvegardée en ligne automatiquement.`, true);
     render();
     ADMIN.refresh();   // pouvoirs admin : automatiques sur le compte Ryzer, seulement sur son PC verrouillé (vérifié par le serveur)
+    renInfo();
     return true;
   }
   async function cloudSave(force, keepalive){
@@ -3283,17 +3293,28 @@ const LB = (() => {
   }
   async function sendScore(force){
     if (state !== 'ready' || !uid || !S.pseudo) return;
-    if (!force && Date.now() - lastScore < 60000) return;
+    if (!force && Date.now() - lastScore < 15000) return;   // scores envoyés toutes les 15 s (classement en direct)
     lastScore = Date.now();
     await rest('scores', {method: 'POST', headers: {'Prefer': 'resolution=merge-duplicates,return=minimal'},
       body: JSON.stringify({user_id: uid, name: S.pseudo, fortune: Math.floor(S.pts + S.liv.bal), lifetime: Math.floor(S.all || 0), sky_best: Math.min(1000, Math.round(S.skyBest * 100) / 100), tower_best: S.towerBest, stars: S.stars, playtime: Math.floor(S.playSec || 0), rebirths: S.fr || 0, avatar: JSON.stringify(safeAv(S.avatar)), updated_at: new Date().toISOString()})});
   }
+  let lbKey = '', lbBusy = false, lbLast = 0;
   async function refresh(){
     if (state !== 'ready') return render();
-    const r = await api(`/rest/v1/scores?select=user_id,name,fortune,sky_best,tower_best,stars,lifetime,playtime,rebirths,avatar&order=${cat}.desc&limit=50`, {headers: H()});
-    if (!r.ok){ $('#lbStatus').textContent = 'Impossible de charger le classement pour l’instant.'; return; }
-    rows = Array.isArray(r.data) ? r.data : []; render();
+    if (lbBusy) return;
+    lbBusy = true; lbLast = Date.now();
+    try {
+      const r = await api(`/rest/v1/scores?select=user_id,name,fortune,sky_best,tower_best,stars,lifetime,playtime,rebirths,avatar&order=${cat}.desc&limit=50`, {headers: H()});
+      if (!r.ok){ $('#lbStatus').textContent = 'Impossible de charger le classement pour l’instant.'; return; }
+      // on ne redessine que si quelque chose a changé (pas de clignotement)
+      const key = cat + JSON.stringify(r.data);
+      if (key === lbKey) return;
+      lbKey = key; rows = Array.isArray(r.data) ? r.data : []; render();
+    } finally { lbBusy = false; }
   }
+  // classement en direct : mis à jour chaque seconde tant qu'il est affiché
+  function liveTick(){ if (view === 'top' && !document.hidden && state === 'ready' && Date.now() - lbLast >= 900) refresh(); }
+  setInterval(liveTick, 1000);
   async function submit(e){
     e.preventDefault();
     if (busyAcc) return;
@@ -3453,7 +3474,7 @@ const LB = (() => {
         d.append(rk, nm, sc); list.appendChild(d);
       });
     }
-    $('#lbStatus').textContent = state === 'ready' ? (uid ? `Tu apparais sous le pseudo « ${S.pseudo} ». Tes scores sont envoyés toutes les minutes.` : 'Connecte-toi ou crée un compte pour apparaître dans le classement.') : '';
+    $('#lbStatus').textContent = state === 'ready' ? (uid ? `Tu apparais sous le pseudo « ${S.pseudo} ». Le classement se met à jour tout seul, en direct.` : 'Connecte-toi ou crée un compte pour apparaître dans le classement.') : '';
     $('#lbMine').innerHTML = `<dt>Fortune (solde + livret)</dt><dd>${M(S.pts + S.liv.bal)}</dd><dt>Lifetime (gagné depuis le début)</dt><dd>${M(S.all || 0)}</dd><dt>Gratte-ciel</dt><dd>×${fx(S.skyBest)}</dd><dt>Badi’Tour</dt><dd>${S.towerBest} étages</dd><dt>Étoiles</dt><dd>${S.stars} ★</dd><dt>Rebirths</dt><dd>${S.fr || 0} ♻️</dd><dt>Temps de jeu</dt><dd>${fmtTime(S.playSec || 0)}</dd>`;
     if (state === 'error' && !uid) accMsg(whyText(), true);
     gate();
@@ -3476,6 +3497,34 @@ const LB = (() => {
     toast('🔒 Tous tes appareils sont déconnectés', 'Si quelqu’un utilisait ton compte, il ne peut plus. Change aussi ton mot de passe.', 'var(--green)');
   };
   $('#pwForm').addEventListener('submit', changePass);
+  // ----- changement de pseudo (vérifié par le serveur : gros mots, faux Ryzer, pseudo déjà pris, étoiles) -----
+  let renCost = 0;
+  async function renInfo(){
+    if (!uid) return;
+    const r = await rest('profiles?select=renames&user_id=eq.' + uid);
+    const n = r.ok && Array.isArray(r.data) && r.data[0] ? r.data[0].renames || 0 : 0;
+    renCost = n === 0 ? 0 : 5 * 2 ** (n - 1);
+    $('#renBtn').textContent = renCost ? `Changer pour ★ ${renCost}` : 'Changer de pseudo (gratuit)';
+    $('#renMsg').textContent = renCost ? `Prochain changement : ${renCost} ★ (tu en as ${S.stars}). Ensuite ce sera ${renCost * 2} ★.` : 'Le 1er changement est gratuit, ensuite il coûte des étoiles ★ (5, puis 10, 20, 40…).';
+    $('#renMsg').style.color = 'var(--muted)';
+  }
+  $('#renForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const el = $('#renMsg'), say = (t, bad) => { el.textContent = t; el.style.color = bad ? 'var(--red)' : 'var(--green)'; };
+    const name = $('#renIn').value.trim().replace(/\s+/g, ' ');
+    if (!NAME_RE.test(name) || slug(name).length < 2) return say('Pseudo invalide : entre 2 et 16 caractères (lettres, chiffres, espaces, - et _).', true);
+    if (renCost > S.stars) return say(`Il te faut ${renCost} ★ et tu en as ${S.stars}.`, true);
+    $('#renBtn').disabled = true;
+    try {
+      const r = await rest('rpc/change_pseudo', {method: 'POST', body: JSON.stringify({nm: name})});
+      if (!r.ok || !r.data) return say('⛔ ' + (r.error || 'Changement refusé.').replace(/^.*?:\s*(?=pseudo|pas assez)/i, ''), true);
+      S.pseudo = r.data.name; S.stars = Math.max(0, S.stars - (r.data.cost || 0)); save();
+      $('#renIn').value = '';
+      await cloudSave(true); await sendScore(true); render(); refresh(); AVATAR.render && AVATAR.renderHeader();
+      say(`✅ Tu t’appelles maintenant « ${r.data.name} ». Pour te connecter, utilise ce nouveau pseudo (même mot de passe).`);
+      toast('✏️ Pseudo changé', `Tu t’appelles maintenant « ${r.data.name} ».`, 'var(--green)');
+    } finally { $('#renBtn').disabled = false; renInfo(); }
+  });
   $('#devLock').onclick = devLock;
   $('#devUnlock').onclick = devUnlock;
   $('#devCopy').onclick = () => {
@@ -3487,8 +3536,8 @@ const LB = (() => {
   $('#devRecForm').addEventListener('submit', devRecover);
   $('#devRecCancel').onclick = devCancel;
   $('#accSaveNow').onclick = async () => { await cloudSave(true); toast('Sauvegardé', 'Ta partie est enregistrée en ligne.', 'var(--green)'); };
-  $('#lbCat').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; cat = b.dataset.c; $$('#lbCat button').forEach(x => x.setAttribute('aria-pressed', x === b)); refresh(); });
-  $('#lbRefresh').onclick = () => { if (state === 'error'){ state = 'off'; init(); return; } sendScore(true); refresh(); };
+  $('#lbCat').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; cat = b.dataset.c; lbKey = ''; $$('#lbCat button').forEach(x => x.setAttribute('aria-pressed', x === b)); refresh(); });
+  // (plus de bouton « Actualiser » : le classement est en direct)
   document.addEventListener('visibilitychange', () => { if (document.hidden) cloudSave(true, true); });
   return {init, open: () => { init(); refresh(); render(); }, tick: () => { cloudSave(false); sendScore(false); poll(); }, render, cloudSave: () => cloudSave(true), loggedIn: () => !!uid, uid: () => uid, admin, rest, devState: () => devState, roster: async () => { const r = await api('/rest/v1/scores?select=user_id,name,avatar,rebirths,updated_at&order=updated_at.desc&limit=100', {headers: H()}); return r.ok && Array.isArray(r.data) ? r.data : []; }, pushScore: () => { sendScore(true); refresh(); }};
 })();
@@ -3870,6 +3919,7 @@ const ADMIN = (() => {
     '/clearchat                       vider tout le chat',
     '— 🤖 Bot modérateur (automatique) —',
     '/suspects                        joueurs qui ont envoyé une fortune impossible',
+    '/renommer "ancien" Nouveau       changer le pseudo d’un joueur (gros mots interdits)',
     '/suspects vider                  effacer la liste',
     'Le bot rend muet 10 min un joueur qui envoie 3 insultes en 10 min (visible dans /logs).',
     '/joueurs                         liste des joueurs',
@@ -3929,6 +3979,12 @@ const ADMIN = (() => {
           }
           const r = cmd === 'unmute' ? await A.unmute(u.user_id) : await A.delChat(u.user_id);
           return r.ok ? out(cmd === 'unmute' ? `🔊 ${u.name} peut de nouveau écrire dans le chat.` : `🧹 Messages de ${u.name} effacés du chat.`, 'ok') : out('⛔ Refusé : ' + r.error, 'err');
+        }
+        case 'renommer': case 'rename': {
+          const who = t[1], nm = t.slice(2).join(' ');
+          if (!who || !nm) return out('Ex : /renommer "ancien pseudo" Nouveau', 'err');
+          const r = await A.rename(who, nm);
+          return r.ok ? out(`✏️ « ${who} » s’appelle maintenant « ${r.data} » (il se connecte avec ce nouveau pseudo, même mot de passe).`, 'ok') : out('⛔ ' + r.error, 'err');
         }
         case 'suspects': {
           if (plain(t[1]) === 'vider'){ const r = await A.clearSuspects(); return r.ok ? out('🧹 Liste des suspects vidée.', 'ok') : out('⛔ Refusé : ' + r.error, 'err'); }
@@ -4029,7 +4085,7 @@ const ADMIN = (() => {
     ['banip', 'pseudo [raison]', 'bannir compte + IP + appareil'], ['unbanip', 'pseudo', 'tout débannir'],
     ['mute', 'pseudo [minutes]', 'retirer le chat'], ['unmute', 'pseudo', 'rendre le chat'],
     ['delchat', 'pseudo', 'effacer ses messages'], ['clearchat', '', 'vider tout le chat'],
-    ['suspects', '[vider]', 'suspects détectés par le bot'],
+    ['suspects', '[vider]', 'suspects détectés par le bot'], ['renommer', 'pseudo nouveau', 'changer son pseudo'],
     ['joueurs', '', 'liste des joueurs'], ['annonce', 'texte', 'message pour tous'],
     ['event', 'argent|casino|dore valeur minutes', 'événement pour tous'], ['happyhour', '[minutes]', 'revenus ×2 + casino ×2'],
     ['pluie', 'montant', 'argent pour chaque joueur connecté'], ['roue', 'tous', 'recharger la roue de tout le monde'],
@@ -4037,7 +4093,7 @@ const ADMIN = (() => {
     ['logs', '', 'journal de sécurité'], ['lock', '', 'fermer la console'],
     ['items', '', 'liste des objets'], ['help', '', 'toutes les commandes'],
   ];
-  const PLAYER_CMDS = ['give', 'take', 'set', 'doubler', 'multiplier', 'vider', 'reset', 'livret', 'etoiles', 'fer', 'item', 'boost', 'info', 'ban', 'unban', 'banip', 'unbanip', 'mute', 'unmute', 'delchat'];
+  const PLAYER_CMDS = ['give', 'take', 'set', 'doubler', 'multiplier', 'vider', 'reset', 'livret', 'etoiles', 'fer', 'item', 'boost', 'info', 'ban', 'unban', 'banip', 'unbanip', 'mute', 'unmute', 'delchat', 'renommer'];
   const sug = $('#aSug'), hint = $('#aHint');
   let names = [], sel = 0, opts = [], hist = [], hi = -1;
   async function loadNames(){ try { names = (await LB.admin.players()).map(p => p.name); } catch (e) {} }
@@ -4363,7 +4419,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261112004904';
+const GAME_BUILD = '20261112123755';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

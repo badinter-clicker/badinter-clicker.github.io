@@ -3483,7 +3483,7 @@ const LB = (() => {
         d.append(rk, nm, sc); list.appendChild(d);
       });
     }
-    $('#lbStatus').textContent = state === 'ready' ? (uid ? `Tu apparais sous le pseudo « ${S.pseudo} ». Le classement se met à jour tout seul, en direct.` : 'Connecte-toi ou crée un compte pour apparaître dans le classement.') : '';
+    $('#lbStatus').textContent = state === 'ready' ? (uid ? (ADMIN.active() ? '⚡ Tu es admin : tu n’apparais pas dans le classement (personne ne te voit). Il se met à jour tout seul, en direct.' : `Tu apparais sous le pseudo « ${S.pseudo} ». Le classement se met à jour tout seul, en direct.`) : 'Connecte-toi ou crée un compte pour apparaître dans le classement.') : '';
     $('#lbMine').innerHTML = `<dt>Fortune (solde + livret)</dt><dd>${M(S.pts + S.liv.bal)}</dd><dt>Lifetime (gagné depuis le début)</dt><dd>${M(S.all || 0)}</dd><dt>Gratte-ciel</dt><dd>×${fx(S.skyBest)}</dd><dt>Badi’Tour</dt><dd>${S.towerBest} étages</dd><dt>Étoiles</dt><dd>${S.stars} ★</dd><dt>Rebirths</dt><dd>${S.fr || 0} ♻️</dd><dt>Temps de jeu</dt><dd>${fmtTime(S.playSec || 0)}</dd>`;
     if (state === 'error' && !uid) accMsg(whyText(), true);
     gate();
@@ -4456,7 +4456,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261112125701';
+const GAME_BUILD = '20261112130756';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

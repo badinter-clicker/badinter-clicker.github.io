@@ -1335,9 +1335,9 @@ const Bad = (() => {
 Style : français, tutoiement, sympa mais surtout CLAIR. Réponds d'abord à la question en une phrase simple, puis si utile 2 à 4 puces commençant par « • ». Utilise les chiffres exacts du joueur. Mots simples, pas de jargon.
 Ce que contient le jeu :
 - Mon casino : on clique sur le bâtiment pour gagner de l'argent, on achète des investissements (revenus automatiques) et des améliorations. Des jetons dorés apparaissent (×7 revenus, gros gain, ou clics ×77). Le rebirth (franchise) remet à zéro l'argent, le livret, les investissements et les améliorations ; en échange, revenus et clics ×1,1 de plus pour toujours (×1,1 ; ×1,21 ; ×1,33…) et 5 étoiles pour le perso. Le 1er rebirth coûte 1 Md (solde + livret), puis chaque rebirth coûte 10 fois plus. Il n'y a pas de maximum d'argent, mais au-delà de 1 Bd (1 million de Md), plus le joueur est riche, plus ses gains baissent doucement (fortune ×10 → gains ×0,79 ; ×1 000 → ×0,5) : le rebirth aide à repartir plus fort.
-- Gratte-ciel (jeu de la salle de jeux) : on mise, un étage se balance au bout d'une grue, on appuie sur « Construire » pour le lâcher sur la tour. Chaque étage posé fait monter le multiplicateur (×1,03 ; ×1,07 ; ×1,12… ×2 au 12e étage, ×10 au 21e, jusqu'à ×50 au 25e étage), mais c'est très dur : le balancement s'accélère vite, le vent souffle dès le 4e étage et il faut viser très précisément. Il n'y a pas de mise maximum, mais plus la mise est grosse, plus les multiplicateurs baissent : ils sont complets jusqu'à la mise normale (1 h de revenus ou 3 % de l'argent du joueur, 100 000 € minimum), puis le bonus diminue (mise ×4 → bonus divisé par 2), sans descendre sous ×10,8 au dernier étage. Le jeu est volontairement dur : le balancement est rapide et il faut viser précisément. On peut « Récupérer » à tout moment. Si l'étage rate la tour ou si la tour devient trop déséquilibrée et penche, elle s'écroule et on perd la mise. Le balancement devient plus fort et plus rapide en montant. Conseil : lâcher quand l'étage passe au milieu, encaisser avant que ça devienne trop dur.
+- Gratte-ciel (jeu de la salle de jeux) : on mise, un étage se balance au bout d'une grue, on appuie sur « Construire » pour le lâcher sur la tour. Chaque étage posé fait monter le multiplicateur (×1,02 ; ×1,05 ; ×1,08… ×2 au 15e étage, ×6 au 21e, jusqu'à ×15 au 25e étage), mais c'est très dur : le balancement s'accélère vite, le vent souffle dès le 3e étage et il faut viser très précisément. Il n'y a pas de mise maximum, mais plus la mise est grosse, plus les multiplicateurs baissent : ils sont complets jusqu'à la mise normale (1 h de revenus ou 3 % de l'argent du joueur, 100 000 € minimum), puis le bonus diminue (mise ×4 → bonus divisé par 2), sans descendre sous ×3,8 au dernier étage. Le jeu est volontairement dur : le balancement est rapide et il faut viser précisément. On peut « Récupérer » à tout moment. Si l'étage rate la tour ou si la tour devient trop déséquilibrée et penche, elle s'écroule et on perd la mise. Le balancement devient plus fort et plus rapide en montant. Conseil : lâcher quand l'étage passe au milieu, encaisser avant que ça devienne trop dur.
 - Salle de jeux : roulette simplifiée (on choisit un montant et une couleur : rouge ×2, noir ×2, vert ×36 ; 18 rouges, 18 noirs, 1 vert ; 1 fois sur 100, une case de la roue devient dorée juste avant le lancer et la bille tombe forcément dessus : la mise est multipliée par 75), machine à sous avec jackpot progressif (⭐⭐⭐), blackjack (×2, blackjack ×2,5, croupier tire jusqu'à 17), Crash (encaisser avant l'explosion), Mines (5×5), dés (gain = 97 / chance), pile ou face (×1,98), Plinko, ticket à gratter, Plus haut / Plus bas, course de chevaux. Tous ces jeux ont un léger avantage pour le casino (environ 3 à 5 %).
-- Règles anti-abus du casino (pour tous les jeux) : jusqu'à la « mise normale » (la plus grande somme entre 1 h de revenus, 3 % de l'argent du joueur et 100 000 €) le gain est complet ; au-delà le gain est réduit (mise ×4 → gain divisé par 2, mise ×100 → gain divisé par 10). Pas de mise maximum ni de plafond. Même avec une mise énorme, le bonus garde au moins 20 % (au Gratte-ciel, le 25e étage vaut toujours au moins ×10,8). La chance (fer à cheval, trèfle, assurance, gains boostés) compte moins quand la mise dépasse 30 min de revenus. Au Mines, le détecteur de bombe ajuste les multiplicateurs. Avec 1 seule bombe, le détecteur n'est pas utilisé (il la trouverait et il n'y aurait plus de risque, donc plus de gain : seulement ×0,97).
+- Règles anti-abus du casino (pour tous les jeux) : jusqu'à la « mise normale » (la plus grande somme entre 1 h de revenus, 3 % de l'argent du joueur et 100 000 €) le gain est complet ; au-delà le gain est réduit (mise ×4 → gain divisé par 2, mise ×100 → gain divisé par 10). Pas de mise maximum ni de plafond. Même avec une mise énorme, le bonus garde au moins 20 % (au Gratte-ciel, le 25e étage vaut toujours au moins ×3,8). La chance (fer à cheval, trèfle, assurance, gains boostés) compte moins quand la mise dépasse 30 min de revenus. Au Mines, le détecteur de bombe ajuste les multiplicateurs. Avec 1 seule bombe, le détecteur n'est pas utilisé (il la trouverait et il n'y aurait plus de risque, donc plus de gain : seulement ×0,97).
 - BadCoin : on parie que la cote d'une crypto fictive (BadCoin, LycéeCoin, CantineToken) monte ou descend, avec un levier jusqu'à ×25, encaissement auto (take profit) et coupure auto (stop loss). Frais 1 %. Liquidation si la perte atteint la mise. La courbe est verte si le joueur gagne, rouge s'il perd. Le cours est aléatoire : personne ne peut prévoir.
 - Mini-jeux d'adresse qui rapportent sans risque : Badi'Tour (empiler des étages), Pluie de billets, Réflexe du croupier.
 - Boutique de boosts (onglet de Mon casino) : Trèfle à 4 feuilles (3 min, 30 % de chances que la mise soit rendue en cas de perte), Gains boostés (+50 % sur les gains, 2 min), Assurance (moitié de la perte rendue, 2 min), Rumeur sur le BadCoin (pendant 30 s le cours a un peu plus de chances de monter, sans garantie), Clics turbo (×5, 1 min), Revenus ×3 (2 min), Aimant à jetons dorés, Détecteur de mines, Ticket de roue. Le Fer à cheval est permanent : +2 % de chances par niveau (max 10) que la mise soit rendue en cas de perte. Les prix augmentent avec la richesse du joueur. Les investissements (revenus automatiques) sont dans l'onglet « Revenus auto ».
@@ -1381,7 +1381,7 @@ Règles pour toi : sois honnête sur les chiffres du joueur (utilise l'état fou
     return '💡 Mes conseils pour toi :\n• ' + L.slice(0, 4).join('\n• ');
   }
   const RULE = {
-    tower: () => '🏗️ Gratte-ciel :\n• Choisis ta mise puis clique sur « Commencer ».\n• L’étage se balance au bout de la grue : appuie sur « Construire » quand il est au-dessus de la tour.\n• Chaque étage posé multiplie ta mise (×1,03 → ×1,07 → ×1,12… ×2 au 12e étage, ×10 au 21e, jusqu’à ×50 au 25e).\n• C’est très dur : le balancement s’accélère, le vent souffle dès le 4e étage.\n• Plus tu mises gros, plus les multiplicateurs baissent : ils sont complets jusqu’à ta mise normale (1 h de revenus ou 3 % de ton argent, 100 000 € minimum), puis le bonus diminue (mise ×4 → bonus ÷2), sans descendre sous ×10,8 au dernier étage.\n• Ça balance vite : il faut viser précisément.\n• Clique sur « Récupérer » quand tu veux encaisser.\n• Si l’étage rate la tour ou si elle penche trop, elle s’écroule et tu perds ta mise.\nAstuce : lâche quand l’étage passe au milieu de son balancement.',
+    tower: () => '🏗️ Gratte-ciel :\n• Choisis ta mise puis clique sur « Commencer ».\n• L’étage se balance au bout de la grue : appuie sur « Construire » quand il est au-dessus de la tour.\n• Chaque étage posé multiplie ta mise (×1,02 → ×1,05 → ×1,08… ×2 au 15e étage, ×6 au 21e, jusqu’à ×15 au 25e).\n• C’est très dur : le balancement s’accélère, le vent souffle dès le 3e étage.\n• Plus tu mises gros, plus les multiplicateurs baissent : ils sont complets jusqu’à ta mise normale (1 h de revenus ou 3 % de ton argent, 100 000 € minimum), puis le bonus diminue (mise ×4 → bonus ÷2), sans descendre sous ×3,8 au dernier étage.\n• Ça balance vite : il faut viser précisément.\n• Clique sur « Récupérer » quand tu veux encaisser.\n• Si l’étage rate la tour ou si elle penche trop, elle s’écroule et tu perds ta mise.\nAstuce : lâche quand l’étage passe au milieu de son balancement.',
     roulette: () => '🎡 Roulette :\n• Choisis ton montant et une couleur.\n• Rouge ou noir : ta mise ×2 (18 cases sur 37).\n• Vert : ta mise ×36 (1 case sur 37).\n• 🌟 Case dorée : 1 fois sur 100, une case devient dorée avant le lancer et la bille tombe forcément dessus : ta mise ×75 !\n• Puis clique sur « Lancer la roue ».',
     slots: () => `🎰 Machine à sous :\n• Clique sur « Jouer » : 3 rouleaux tournent.\n• 3 symboles pareils : de ×4 (🍒) à ×80 (⭐).\n• Une paire : ×1,25.\n• ⭐⭐⭐ gagne aussi le jackpot, qui vaut ${M(S.jackpot)} en ce moment.`,
     bj: () => '🃏 Blackjack :\n• Le but : avoir plus de points que le croupier sans dépasser 21.\n• Figures = 10, As = 1 ou 11.\n• « Prendre une carte » pour te rapprocher de 21, « Je m’arrête là » pour garder ton total.\n• Victoire ×2, blackjack (21 en 2 cartes) ×2,5, égalité = mise rendue.\nAstuce : arrête-toi à partir de 17, double ta mise sur 10 ou 11.',
@@ -1855,7 +1855,7 @@ function renderEvBar(){
 // Grosse mise = gain réduit (tous les jeux) : gain complet jusqu'à la « mise normale » (1 h de revenus ou 3 % de ton argent, 100 000 € minimum),
 // au-delà le gain baisse (mise ×4 → gain ÷2, mise ×100 → gain ÷10). Tout miser ne fait donc plus exploser la fortune.
 const casRef = (pool = S.pts) => Math.max(1e5, Math.floor(baseCps() * 3600), Math.floor(pool * .03));
-// Minimum : même avec une mise énorme, le bonus garde 20 % (au Gratte-ciel, le 25e étage vaut toujours au moins ×10,8).
+// Minimum : même avec une mise énorme, le bonus garde 20 % (au Gratte-ciel, le 25e étage vaut toujours au moins ×3,8).
 const CAS_MIN = .2;
 const pctTxt = f => fx(f * 100, f < .001 ? 3 : f < .1 ? 1 : 0);
 const casFactor = (v, pool) => !v || v <= casRef(pool) ? 1 : Math.max(CAS_MIN, Math.sqrt(casRef(pool) / v));
@@ -1921,7 +1921,7 @@ const CAS = (() => {
   const bet = () => { const v = parseAmt(betIn.value); return isFinite(v) && v >= 1 ? Math.floor(v) : 0; };
   function showBet(){
     const v = bet(), el = $('#betFmt'), f = casFactor(v) * wealthFactor();
-    el.textContent = v ? `= ${M(v)}` + (v > S.pts ? ' · pas assez !' : f < .995 ? ` · tu gardes ${pctTxt(f)} % du gain` + (game === 'tower' ? ` (max ×${fx(1 + 49 * f)})` : '') + (wealthFactor() < .995 ? ' · 📉 richesse' : ` · mise normale : ${M(casRef())}`) : '') : 'mise invalide';
+    el.textContent = v ? `= ${M(v)}` + (v > S.pts ? ' · pas assez !' : f < .995 ? ` · tu gardes ${pctTxt(f)} % du gain` + (game === 'tower' ? ` (max ×${fx(1 + 14 * f)})` : '') + (wealthFactor() < .995 ? ' · 📉 richesse' : ` · mise normale : ${M(casRef())}`) : '') : 'mise invalide';
     el.classList.toggle('bad', !v || v > S.pts);
   }
   const setBet = v => { betIn.value = String(Math.max(1, Math.floor(v))); showBet(); };
@@ -2534,7 +2534,7 @@ const CAS = (() => {
   }
 
   /* ----- Gratte-ciel (l'étage se balance au bout de la grue, on empile, on encaisse) ----- */
-  const TM = [1.03, 1.07, 1.12, 1.18, 1.25, 1.33, 1.42, 1.52, 1.64, 1.78, 1.95, 2.15, 2.4, 2.7, 3.1, 3.6, 4.3, 5.2, 6.4, 8, 10.5, 14, 20, 30, 50];
+  const TM = [1.02, 1.05, 1.08, 1.11, 1.15, 1.19, 1.24, 1.29, 1.35, 1.42, 1.5, 1.6, 1.72, 1.86, 2, 2.3, 2.7, 3.2, 3.9, 4.8, 6, 7.5, 9.5, 12, 15];   // nerf 13/11 : ×15 max (on arrivait à ×20)
   // Plus tu mises gros, moins les multiplicateurs comptent (pas de mise max) :
   // jusqu'à la « mise normale » (30 min de revenus, 100 000 € minimum) le bonus est complet,
   // au-delà il baisse (mise ×4 → bonus ÷2, mise ×100 → bonus ÷10). Tout miser ne fait donc plus exploser la fortune.
@@ -2547,7 +2547,7 @@ const CAS = (() => {
   function renderTower(){
     area.innerHTML = `<div class="felt">
       <canvas id="twC" class="cv" width="${GW}" height="${GH}" style="max-width:420px;margin:0 auto;touch-action:manipulation;cursor:pointer"></canvas>
-      <div class="cas-msg" id="casMsg">Choisis ta mise puis clique sur « Commencer ». Appuie sur « Construire » (ou clique sur la tour, ou Espace) quand l’étage qui se balance est au-dessus de la tour. Chaque étage posé multiplie ta mise (×2 au 12e étage, ×10 au 21e, ×50 maximum). Ça devient vite très dur ! Plus tu mises gros, plus les multiplicateurs baissent. Si un étage tombe ou si la tour penche trop, tu perds !</div>
+      <div class="cas-msg" id="casMsg">Choisis ta mise puis clique sur « Commencer ». Appuie sur « Construire » (ou clique sur la tour, ou Espace) quand l’étage qui se balance est au-dessus de la tour. Chaque étage posé multiplie ta mise (×2 au 15e étage, ×6 au 21e, ×15 maximum). Ça devient vite très dur ! Plus tu mises gros, plus les multiplicateurs baissent. Si un étage tombe ou si la tour penche trop, tu perds !</div>
       <div class="btns c"><button class="btn ghost" id="twCash" type="button" disabled>Récupérer</button><button class="btn" id="twBuild" type="button" style="min-width:170px">Commencer</button></div>
     </div>`;
     if (!tw || tw.state === 'over' || tw.state === 'won') twReset();
@@ -2582,7 +2582,7 @@ const CAS = (() => {
     tw.state = 'drop'; tone(330, .05, 'square', .02); twButtons();
   }
   function twSwing(){
-    const n = tw.floors.length - 1, A = Math.min(.8, .4 + n * .036), w = Math.min(5, 2.5 + n * .13);
+    const n = tw.floors.length - 1, A = Math.min(.85, .42 + n * .038), w = Math.min(5.4, 2.6 + n * .14);
     const th = A * Math.sin(w * tw.tau), dth = A * w * Math.cos(w * tw.tau);
     return {th, x: PX + ROPE * Math.sin(th), y: PY + ROPE * Math.cos(th), vx: ROPE * dth * Math.cos(th), vy: -ROPE * dth * Math.sin(th)};
   }
@@ -2603,13 +2603,13 @@ const CAS = (() => {
     // position réelle du sommet, en tenant compte de l'inclinaison de la tour
     const d = tw.drop, n = tw.floors.length, top = tw.floors[n - 1];
     const topX = PX + top.x * Math.cos(tw.lean) + n * FH * Math.sin(tw.lean), dx = d.x - topX;
-    if (Math.abs(dx) > FW * .34){
+    if (Math.abs(dx) > FW * .32){
       tw.debris.push({x: d.x, y: d.y, vx: d.vx * .6 + (dx > 0 ? 60 : -60), vy: d.vy * .3, rot: d.rot, vr: dx > 0 ? 3.5 : -3.5, i: n});
       tw.drop = null; tw.leanV += (dx > 0 ? 1 : -1) * .05;
       return twLose(`L’étage a raté la tour et s’écrase en bas ! Perdu : ${M(tw.bet)}.`);
     }
     let nx = top.x + dx, perfect = false;
-    if (Math.abs(dx) < 3){ nx = top.x; perfect = true; tw.perfects++; }
+    if (Math.abs(dx) < 2.5){ nx = top.x; perfect = true; tw.perfects++; }
     tw.floors.push({x: nx}); tw.drop = null;
     tw.leanV += dx * .0016 + (perfect ? 0 : (Math.random() - .5) * .01);
     const com = tw.floors.reduce((a, f) => a + f.x, 0) / tw.floors.length;
@@ -2633,7 +2633,7 @@ const CAS = (() => {
     const com = tw.floors.reduce((a, f) => a + f.x, 0) / n;
     if (tw.collapse){ tw.leanV += Math.sign(tw.lean || com || 1) * dt * 3; tw.lean = clamp(tw.lean + tw.leanV * dt, -1.6, 1.6); }
     else {
-      const wind = n > 3 ? Math.sin(now / 650) * .0055 * (n - 3) / 6 : 0;
+      const wind = n > 2 ? Math.sin(now / 600) * .006 * (n - 2) / 6 : 0;
       tw.leanV += ((com * .0018 + wind - tw.lean) * 38 - tw.leanV * 4.2) * dt;
       tw.lean += tw.leanV * dt;
       if (tw.state === 'swing' && Math.abs(tw.lean) > .22){ tw.collapse = true; twLose(`La tour penche trop et s’écroule ! Perdu : ${M(tw.bet)}.`); }
@@ -4617,7 +4617,7 @@ const ADMIN = (() => {
     '— 📢 Console annonceur —',
     '/annonce texte                   message en grand en haut de l’écran de tout le monde (marqué ANNONCEUR)',
     'Exemples : /annonce Maintenance du jeu à 18h · /annonce Tournoi de Gratte-ciel ce soir à 20h !',
-    'Limites : 1 annonce par minute, 140 caractères, les gros mots sont floutés.',
+    'Pas de limite : autant d’annonces que tu veux (200 caractères max par annonce). Les gros mots sont quand même floutés.',
     'Tu peux seulement faire des annonces (pas de mute, pas de boosts). Tes annonces sont visibles par l’admin.',
   ];
   const MODO_OK = ['help', 'aide', 'annonce', 'abuse', 'virements', 'virement', 'dossier', 'historique', 'kick', 'expulser', 'epingle', 'epingler', 'pin', 'staff', 'mute', 'unmute', 'mutes', 'delchat', 'clearchat', 'lent', 'slow', 'avert', 'avertir', 'warn', 'signalements', 'reports', 'suspects', 'joueurs', 'info', 'lock', 'fermer', 'verrouiller'];
@@ -4840,7 +4840,7 @@ const ADMIN = (() => {
       const RL = {
         admin: ['⚡', '⚡ Console admin', '⚡ Mode admin actif', '⚡ Mode admin actif (compte Ryzer sur ton PC). Tape une lettre pour voir les commandes (Tab ou Entrée pour compléter, ↑ pour l’historique).'],
         modo: ['🛡️', '🛡️ Console modérateur', '🛡️ Tu es modérateur', '🛡️ Tu es modérateur. Tape /help pour voir tes commandes : muet, avertissements, kick, dossier, message épinglé, chat staff, ADMIN ABUSE…'],
-        annonceur: ['📢', '📢 Console annonceur', '📢 Tu es annonceur', '📢 Tu es annonceur : tape /annonce suivi de ton message pour prévenir tout le monde (1 par minute, 140 caractères).'],
+        annonceur: ['📢', '📢 Console annonceur', '📢 Tu es annonceur', '📢 Tu es annonceur : tape /annonce suivi de ton message pour prévenir tout le monde.'],
       }[r];
       chip.textContent = RL[0]; chip.title = RL[1];
       abBtn.hidden = r === 'annonceur'; abClose();
@@ -4932,7 +4932,7 @@ const A = [
   ['j12','Outsider','Gagner avec un cheval à grosse cote.',()=>S.horseLong>=1],
   ['j16','Case dorée','Faire tomber la bille sur la case dorée de la roulette (×75).',()=>(S.rlGolden||0)>=1],
   ['j13','Promoteur','Récupérer à ×5 ou plus au Gratte-ciel.',()=>S.skyBest>=5],
-  ['j14','Tour de Babel','Récupérer à ×20 ou plus au Gratte-ciel.',()=>S.skyBest>=20],
+  ['j14','Tour de Babel','Récupérer à ×10 ou plus au Gratte-ciel.',()=>S.skyBest>=10],
   ['t1','Trader débutant','Fermer une position BadCoin.',()=>S.trades>=1],
   ['t2','Loup de Wall Street','Gagner 100 000 € sur une seule position.',()=>S.trBest>=1e5],
   ['t3','Liquidé','Se faire liquider (ça arrive à tout le monde).',()=>S.liq>=1],
@@ -5211,7 +5211,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261113144312';
+const GAME_BUILD = '20261113145325';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

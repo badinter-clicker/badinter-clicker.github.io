@@ -4105,20 +4105,21 @@ const ADMIN = (() => {
     '/suspects vider                  effacer la liste',
     'Le bot rend muet 10 min un joueur qui envoie 3 insultes en 10 min, et 30 min un joueur qui envoie un score impossible (il ne bannit plus jamais : c’est toi qui décides). Visible dans /logs.',
     '/joueurs                         liste des joueurs',
-    '— Pour tout le monde, en direct —',
+    '— 📢 Annonce —',
     '/annonce texte                   message en grand pour tous (10 s)',
+    '— 🔥 ADMIN ABUSE (boosts et cadeaux en direct) —',
+    '/abuse [minutes]                 TOUT : tous les boosts + revenus ×3 + casino ×2 + case dorée pour tous (5 min)',
+    '/abuse pseudo [minutes]          tous les boosts pour un seul joueur',
+    '/jeton pseudo [pseudo2…] [nombre]  jetons dorés pour les joueurs choisis (/jeton tous 3 pour tout le monde)',
+    '/boost tous objet [minutes]      un boost offert à tout le monde',
+    '/roue tous                       roue de la fortune rechargée pour tous',
+    '/pluie 10k                       chaque joueur connecté reçoit 10k',
+    '/happyhour [minutes]             revenus ×2 + casino ×2',
+    '/goldrush [minutes]              case dorée à 100 % !',
     '/event argent 5 10               revenus ×5 pendant 10 min',
     '/event casino 2 5                gains du casino ×2 pendant 5 min',
     '/event dore 25 5                 case dorée à 25 % pendant 5 min',
-    '/happyhour [minutes]             revenus ×2 + casino ×2',
-    '/abuse [minutes]                 🔥 ADMIN ABUSE : tous les boosts + revenus ×3 + casino ×2 + case dorée pour tous (5 min)',
-    '/abuse pseudo [minutes]          tous les boosts pour un seul joueur',
-    '/jeton pseudo [pseudo2…] [nombre]  jetons dorés pour les joueurs choisis (/jeton tous 3 pour tout le monde)',
-    '/goldrush [minutes]              case dorée à 100 % !',
-    '/pluie 10k                       chaque joueur connecté reçoit 10k',
-    '/boost tous objet [minutes]      un boost offert à tout le monde',
-    '/roue tous                       roue de la fortune rechargée pour tous',
-    '/stop                            arrête tous les événements',
+    '/stop                            arrête tout (abuse et événements)',
     '— Toi —',
     '/money montant                   régler ton propre solde',
     '/logs                            journal de sécurité (essais, actions)',
@@ -4136,7 +4137,14 @@ const ADMIN = (() => {
     if (role === 'modo' && cmd === 'suspects' && plain(t[1]) === 'vider') return out('⛔ Seul l’admin peut vider la liste.', 'err');
     try {
       switch (cmd){
-        case 'help': case 'aide': (role === 'modo' ? MODO_HELP : HELP).forEach(h => out(h)); return;
+        case 'help': case 'aide': {
+          // /help abuse, /help chat… : une seule catégorie
+          const list = role === 'modo' ? MODO_HELP : HELP, k = plain(t.slice(1).join(' '));
+          if (!k){ list.forEach(h => out(h)); return out('Astuce : /help abuse, /help chat, /help joueurs… pour voir une seule catégorie.'); }
+          let on = false, n = 0;
+          for (const h of list){ if (h.startsWith('—')) on = plain(h).includes(k); if (on){ out(h); n++; } }
+          return n ? undefined : out('Catégorie inconnue. Essaie : /help abuse, /help chat, /help joueurs.', 'err');
+        }
         case 'modo': case 'unmodo': {
           const who = t.slice(1).join(' '); if (!who) return out(`Ex : /${cmd} pseudo`, 'err');
           const r = await A.setModo(who, cmd === 'modo');
@@ -4345,7 +4353,7 @@ const ADMIN = (() => {
   }
   // --- Saisie assistée : « / » déjà écrit, suggestions dès la 1re lettre, Tab/Entrée pour compléter, ↑ pour l'historique ---
   const CMDS = [
-    ['give', 'pseudo montant [message]', 'donner de l’argent'], ['goldrush', '[minutes]', 'case dorée à 100 % pour tous'],
+    ['give', 'pseudo montant [message]', 'donner de l’argent'], ['goldrush', '[minutes]', '🔥 case dorée à 100 % pour tous'],
     ['take', 'pseudo montant', 'retirer de l’argent'], ['set', 'pseudo montant', 'régler son solde exact'],
     ['doubler', 'pseudo', 'doubler son argent'], ['multiplier', 'pseudo x', 'multiplier son argent'],
     ['vider', 'pseudo', 'mettre son solde à 0'], ['reset', 'pseudo confirmer', 'remettre sa partie à zéro'],
@@ -4361,9 +4369,9 @@ const ADMIN = (() => {
     ['suspects', '[vider]', 'suspects détectés par le bot'], ['renommer', 'pseudo nouveau', 'changer son pseudo'],
     ['modo', 'pseudo', 'nommer un modérateur'], ['unmodo', 'pseudo', 'retirer un modérateur'], ['modos', '', 'liste des modérateurs'], ['mdp', 'pseudo', 'mot de passe temporaire'],
     ['joueurs', '', 'liste des joueurs'], ['annonce', 'texte', 'message pour tous'],
-    ['event', 'argent|casino|dore valeur minutes', 'événement pour tous'], ['happyhour', '[minutes]', 'revenus ×2 + casino ×2'], ['abuse', '[pseudo|tous] [minutes]', '🔥 tous les boosts pour tout le monde'], ['jeton', 'pseudo… [nombre]', '✨ jetons dorés pour des joueurs choisis'],
-    ['pluie', 'montant', 'argent pour chaque joueur connecté'], ['roue', 'tous', 'recharger la roue de tout le monde'],
-    ['stop', '', 'arrêter tous les événements'], ['money', 'montant', 'régler ton propre solde'],
+    ['event', 'argent|casino|dore valeur minutes', '🔥 événement pour tous'], ['happyhour', '[minutes]', '🔥 revenus ×2 + casino ×2'], ['abuse', '[pseudo|tous] [minutes]', '🔥 tous les boosts pour tout le monde'], ['jeton', 'pseudo… [nombre]', '🔥 jetons dorés pour des joueurs choisis'],
+    ['pluie', 'montant', '🔥 argent pour chaque joueur connecté'], ['roue', 'tous', '🔥 recharger la roue de tout le monde'],
+    ['stop', '', '🔥 tout arrêter (abuse et événements)'], ['money', 'montant', 'régler ton propre solde'],
     ['logs', '', 'journal de sécurité'], ['lock', '', 'fermer la console'],
     ['items', '', 'liste des objets'], ['help', '', 'toutes les commandes'],
   ];
@@ -4385,7 +4393,7 @@ const ADMIN = (() => {
     '/signalements vider              effacer la liste une fois traitée',
     '/suspects                        joueurs repérés par le bot',
     '/joueurs · /info pseudo          voir les joueurs : en ligne, muet, avertissements',
-    '— Tout le monde —',
+    '— 🔥 Abuse et annonces —',
     '/annonce texte                   annonce pour tous, marquée MODO (1 par minute, 140 caractères)',
     '/abuse [minutes]                 🔥 tous les boosts + revenus ×3 + casino ×2 pour tout le monde (5 min max, 1 fois toutes les 30 min)',
     'Limites anti-abus : 6 mutes par 10 min, 5 effacements du chat par 5 min. L’admin peut te rendre muet ou t’avertir comme les autres.',
@@ -4404,6 +4412,7 @@ const ADMIN = (() => {
     if (i >= 2 && cmd === 'jeton') return pick(names, 'joueur (ou un nombre à la fin)');
     if (i === 1 && cmd === 'event') return pick(['argent', 'casino', 'dore'], 'type d’événement');
     if (i === 1 && cmd === 'roue') return pick(['tous'], 'tout le monde');
+    if (i === 1 && (cmd === 'help' || cmd === 'aide')) return pick(role === 'modo' ? ['abuse', 'chat', 'joueurs'] : ['abuse', 'annonce', 'chat', 'joueurs', 'modo', 'bot', 'toi'], 'catégorie');
     if (i === 1 && cmd === 'signalements') return pick(['vider'], 'effacer la liste');
     if (i === 1 && cmd === 'lent') return pick(['0', '5', '10', '30'], 'secondes entre deux messages');
     if (i === 2 && cmd === 'boost') return pick(Object.keys(ITEMS), 'boost');
@@ -4818,7 +4827,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261113110537';
+const GAME_BUILD = '20261113113201';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

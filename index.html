@@ -438,6 +438,10 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 body.gated .toasts{z-index:101}
 .accform{display:flex;flex-direction:column;gap:6px;max-width:320px}
 .accform .field{width:100%}
+.pwwrap{position:relative;display:block}
+.pwwrap .field{width:100%;padding-right:46px}
+.pwbtn{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:0;font-size:18px;line-height:1;padding:6px 8px;cursor:pointer;opacity:.75}
+.pwbtn:hover,.pwbtn:focus-visible{opacity:1}
 .accform label{font-size:13px;color:var(--muted)}
 .mc{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(68px + env(safe-area-inset-bottom,0px));z-index:85;width:min(440px,calc(100vw - 32px));display:flex;flex-direction:column;gap:6px;pointer-events:none}
 .mc-log{display:flex;flex-direction:column;gap:2px;max-height:min(46vh,360px);overflow-y:auto;font:500 14px/1.35 ui-monospace,Consolas,"Courier New",monospace;scrollbar-width:thin}
@@ -5211,7 +5215,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261113145325';
+const GAME_BUILD = '20261113152606';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;
@@ -5276,6 +5280,21 @@ const GAME_BUILD = '20261113145325';
   let hasAuth = false; try { hasAuth = !!localStorage.getItem('badinterCasino_session'); } catch (e) {}
   if (!seen && !(LB_URL && hasAuth)) w.hidden = false;
 })();
+/* ----- Mot de passe : bouton 👁️ pour l'afficher ou le cacher (il se recache tout seul quand on valide) ----- */
+document.querySelectorAll('input[type="password"]').forEach(inp => {
+  const w = document.createElement('span'); w.className = 'pwwrap';
+  inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'pwbtn';
+  const set = show => {
+    inp.type = show ? 'text' : 'password'; b.textContent = show ? '🙈' : '👁️';
+    const l = show ? 'Cacher le mot de passe' : 'Afficher le mot de passe';
+    b.setAttribute('aria-label', l); b.title = l; b.setAttribute('aria-pressed', String(show));
+  };
+  set(false);
+  b.onclick = () => { set(inp.type === 'password'); inp.focus(); };
+  w.appendChild(b);
+  if (inp.form) inp.form.addEventListener('submit', () => set(false), true);
+});
 requestAnimationFrame(frame);
 })();
 </script>

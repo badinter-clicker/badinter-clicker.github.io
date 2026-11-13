@@ -781,6 +781,16 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
         <p class="small" id="livCapTxt"></p>
       </div>
       <div class="card">
+        <h2>💸 Virement à un joueur</h2>
+        <p class="small">Envoie de l’argent de ton solde à un autre joueur. Frais : 5 % en plus (ils disparaissent). Un virement toutes les 20 secondes. Le serveur vérifie que tu as vraiment l’argent.</p>
+        <div class="pane-h" style="color:var(--ink)"><input id="vrTo" class="field" list="vrList" placeholder="Pseudo du joueur" autocomplete="off" aria-label="Pseudo du joueur qui reçoit"><datalist id="vrList"></datalist></div>
+        <div class="pane-h" style="color:var(--ink)"><input id="vrAmt" class="field" inputmode="decimal" placeholder="Montant (ex : 10k, 2M)" aria-label="Montant du virement"><span id="vrFmt" class="okf"></span></div>
+        <div class="qb" id="vrQ"><button type="button" data-b="p10">10 % de mon argent</button><button type="button" data-b="p50">La moitié</button></div>
+        <div class="btns"><button class="btn up" id="vrGo" type="button">Envoyer le virement</button></div>
+        <h3>Derniers virements</h3>
+        <div class="thist" id="vrHist"><div class="small">Aucun virement pour l’instant.</div></div>
+      </div>
+      <div class="card">
         <h2>Comment ça marche</h2>
         <div class="viplist" id="livTable"></div>
         <p class="small">Les intérêts sont calculés sur le plus petit montant présent pendant les 10 minutes : déposer juste avant le versement ne rapporte rien de plus. Ton livret rapporte aussi quand le jeu est fermé (jusqu’à 6 heures).</p>
@@ -969,13 +979,14 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
   <div class="ahead"><b>⚡ Console admin</b><button type="button" class="abtn" id="aAbBtn" hidden>🔥 ADMIN ABUSE</button><span class="small">tape /help</span><button type="button" id="aClose" aria-label="Fermer la console">×</button></div>
   <div class="abp" id="aAb" hidden>
     <div class="abp-h"><b>🔥 ADMIN ABUSE</b><button type="button" id="abX" aria-label="Fermer le panneau">×</button></div>
-    <div class="abp-note" id="abNote" hidden>🛡️ Limites des modos : 5 min max, 1 fois toutes les 30 min, 5 joueurs max, pas d’argent, pas pour toi ni pour un autre modo · revenus ×3, casino ×2, case dorée 25 %, 5 jetons max.</div>
+    <div class="abp-note" id="abNote" hidden>🛡️ Limites des modos : 5 min max, 1 fois toutes les 30 min, 5 joueurs max, pas d’argent, pas pour toi ni pour un autre modo.</div>
+    <div class="abp-note">Maximum : revenus ×2, casino ×1,5, case dorée 15 %, 5 jetons, 15 min.</div>
     <div class="abp-l">Pour qui ?</div>
     <div class="abp-seg" id="abWho"><button type="button" data-w="tous" aria-pressed="true">🌍 Tout le monde</button><button type="button" data-w="choix" aria-pressed="false">👤 Joueurs choisis</button></div>
     <div class="abp-pl" id="abPl" hidden></div>
     <div class="abp-l">Quoi ? <small>coche ce que tu veux</small></div>
     <div class="abp-grid" id="abItems"></div>
-    <div class="abp-row"><label>Durée <input id="abMin" type="number" min="1" max="60" value="5" inputmode="numeric"> min</label><button type="button" id="abAll">Tout cocher</button><button type="button" id="abNone">Rien</button><button type="button" class="go" id="abGo">🔥 Lancer</button></div>
+    <div class="abp-row"><label>Durée <input id="abMin" type="number" min="1" max="15" value="5" inputmode="numeric"> min</label><button type="button" id="abAll">Tout cocher</button><button type="button" id="abNone">Rien</button><button type="button" class="go" id="abGo">🔥 Lancer</button></div>
   </div>
   <div class="alog" id="aLog" aria-live="polite"></div>
   <div class="asug" id="aSug" role="listbox" aria-label="Suggestions" hidden></div>
@@ -3136,6 +3147,56 @@ function livWithdraw(){
   toast('🏦 Retrait effectué', `${M(v)} sont revenus sur ton solde. Le taux du livret repart à 1 %.`, 'var(--gold)');
   renderLivret();
 }
+/* ----- Virements entre joueurs (vérifiés par le serveur : vraie partie, 5 % de frais, 1 toutes les 20 s) ----- */
+const VR_FEE = .05;
+function vrRender(){
+  const raw = $('#vrAmt').value.trim(), v = parseAmt(raw), el = $('#vrFmt');
+  if (!raw){ el.textContent = ''; el.classList.remove('bad'); return; }
+  const ok = isFinite(v) && v >= 100, poor = v * (1 + VR_FEE) > S.pts;
+  el.textContent = ok ? `= ${M(v)} + ${M(v * VR_FEE)} de frais` + (poor ? ' · pas assez !' : '') : 'montant invalide (100 € minimum)';
+  el.classList.toggle('bad', !ok || poor);
+}
+let vrBusy = false, vrNames = 0;
+async function vrLoadNames(){
+  if (Date.now() - vrNames < 60000) return; vrNames = Date.now();
+  const rows = await LB.roster(), me = LB.uid();
+  $('#vrList').innerHTML = rows.filter(r => r.user_id !== me).map(r => `<option value="${esc(r.name)}"></option>`).join('');
+}
+async function vrSend(){
+  if (vrBusy) return;
+  if (!LB.loggedIn()) return toast('Connecte-toi', 'Il faut un compte pour faire un virement.', 'var(--red)');
+  const to = $('#vrTo').value.trim(), v = parseAmt($('#vrAmt').value);
+  if (!to) return toast('Pseudo manquant', 'Écris le pseudo du joueur qui reçoit l’argent.', 'var(--red)');
+  if (!(isFinite(v) && v >= 100)) return toast('Montant invalide', '100 € minimum (ex : 10k, 2M).', 'var(--red)');
+  if (v * (1 + VR_FEE) > S.pts) return toast('Pas assez d’argent', `Il te faut ${M(v * (1 + VR_FEE))} sur ton solde (virement + 5 % de frais).`, 'var(--red)');
+  vrBusy = true; $('#vrGo').disabled = true;
+  try {
+    await LB.cloudSave();   // le serveur vérifie ta vraie partie : on l'envoie d'abord
+    const r = await LB.rest('rpc/send_money', {method: 'POST', body: JSON.stringify({pname: to, amount: v})});
+    if (!r.ok || !r.data) return toast('⛔ Virement refusé', String(r.error || 'réessaie dans un moment'), 'var(--red)');
+    $('#vrAmt').value = ''; vrRender();
+    toast('💸 Virement envoyé', `${M(r.data.amount)} envoyés à ${r.data.to} (frais : ${M(r.data.fee)}).`, 'var(--green)');
+    tone(523, .08); tone(784, .1, 'triangle', .05, .07);
+    await LB.pollNow();   // l'argent part de ton solde tout de suite
+    vrHistory();
+  } finally { vrBusy = false; $('#vrGo').disabled = false; }
+}
+async function vrHistory(){
+  if (!LB.loggedIn()) return;
+  const me = LB.uid(), r = await LB.rest(`transfers?select=from_user,to_user,amount,created_at&or=(from_user.eq.${me},to_user.eq.${me})&order=id.desc&limit=6`);
+  if (!r.ok || !Array.isArray(r.data)) return;
+  const box = $('#vrHist');
+  if (!r.data.length){ box.innerHTML = '<div class="small">Aucun virement pour l’instant.</div>'; return; }
+  const ids = [...new Set(r.data.flatMap(x => [x.from_user, x.to_user]))];
+  const p = await LB.rest('profiles?select=user_id,name&user_id=in.(' + ids.join(',') + ')');
+  const nm = Object.fromEntries((p.ok && Array.isArray(p.data) ? p.data : []).map(x => [x.user_id, x.name]));
+  box.innerHTML = r.data.map(x => { const out = x.from_user === me; return `<div><span>${out ? '➡️ à ' + esc(nm[x.to_user] || '?') : '⬅️ de ' + esc(nm[x.from_user] || '?')} · ${new Date(x.created_at).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</span><b style="color:${out ? 'var(--red)' : 'var(--green)'}">${out ? '−' : '+'}${M(x.amount)}</b></div>`; }).join('');
+}
+$('#vrAmt').addEventListener('input', vrRender);
+$('#vrTo').addEventListener('focus', vrLoadNames);
+$('#vrQ').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (!b) return; const max = S.pts / (1 + VR_FEE); $('#vrAmt').value = String(cents(b.dataset.b === 'p10' ? max * .1 : max * .5)); vrRender(); });
+$('#vrGo').onclick = vrSend;
+$('#nav').addEventListener('click', e => { const b = e.target.closest('[data-v="livret"]'); if (b) setTimeout(() => { vrLoadNames(); vrHistory(); }, 50); });
 function livQuick(box, input, fromLivret){
   box.addEventListener('click', e => {
     const b = e.target.closest('[data-b]'); if (!b) return;
@@ -3320,6 +3381,12 @@ const LB = (() => {
         txt = b.id === 'magnet' ? `✨ ${Math.round(n)} jeton${n >= 2 ? 's' : ''} doré${n >= 2 ? 's' : ''} : clique vite dessus !` : `${b.icon} ${b.name}${b.dur ? ' pendant ' + n + ' min' : ''}`; } break; }
     }
     if (!txt) return;
+    if (g.kind === 'money_add' && String(g.message || '').startsWith('💸 Virement')){
+      // virement entre joueurs : l'expéditeur a déjà eu son message, celui qui reçoit est prévenu
+      if (a > 0){ toast(g.message, `+${M(a)} sur ton solde !`, 'var(--green)'); winSound(); Bad.say(`${g.message} : +${M(a)} 💸`, true); }
+      updateBuildings(true); updateUpgrades(); updateShop(); if (typeof vrHistory === 'function') vrHistory();
+      return;
+    }
     if (g.message === '#silent'){ updateBuildings(true); updateUpgrades(); updateShop(); renderBoostBar(); return; }   // action discrète de l'admin
     const neg = (a < 0 && g.kind !== 'money_set') || g.kind === 'reset' || (g.kind === 'money_mult' && a < 1);
     toast(neg ? '⚠️ Action de l’admin' : '🎁 Cadeau de l’admin !', txt + (g.message ? ' · ' + g.message : ''), neg ? 'var(--red)' : 'var(--gold)');
@@ -3751,7 +3818,7 @@ const LB = (() => {
   $('#lbCat').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; cat = b.dataset.c; lbKey = ''; $$('#lbCat button').forEach(x => x.setAttribute('aria-pressed', x === b)); refresh(); });
   // (plus de bouton « Actualiser » : le classement est en direct)
   document.addEventListener('visibilitychange', () => { if (document.hidden) cloudSave(true, true); });
-  return {init, open: () => { init(); refresh(); render(); }, tick: () => { cloudSave(false); sendScore(false); poll(); }, render, cloudSave: () => cloudSave(true), loggedIn: () => !!uid, uid: () => uid, admin, rest, devState: () => devState, roster: async () => { const r = await api('/rest/v1/scores?select=user_id,name,avatar,rebirths,updated_at&order=updated_at.desc&limit=100', {headers: H()}); return r.ok && Array.isArray(r.data) ? r.data : []; }, pushScore: () => { sendScore(true); refresh(); }};
+  return {pollNow: () => { lastPoll = 0; return poll(); }, init, open: () => { init(); refresh(); render(); }, tick: () => { cloudSave(false); sendScore(false); poll(); }, render, cloudSave: () => cloudSave(true), loggedIn: () => !!uid, uid: () => uid, admin, rest, devState: () => devState, roster: async () => { const r = await api('/rest/v1/scores?select=user_id,name,avatar,rebirths,updated_at&order=updated_at.desc&limit=100', {headers: H()}); return r.ok && Array.isArray(r.data) ? r.data : []; }, pushScore: () => { sendScore(true); refresh(); }};
 })();
 
 /* =================== Chat des joueurs (façon Minecraft) =================== */
@@ -4176,6 +4243,7 @@ const ADMIN = (() => {
     '/signalements [vider]            joueurs signalés par les autres (/signaler dans le chat)',
     '— 🤖 Bot modérateur (automatique) —',
     '/suspects                        joueurs qui ont envoyé une fortune impossible',
+    '/virements                       les 15 derniers virements entre joueurs',
     '/renommer "ancien" Nouveau       changer le pseudo d’un joueur (gros mots interdits)',
     '— 🛡️ Modérateurs (pouvoirs limités, actions visibles dans /logs) —',
     '/modo pseudo                     nommer un modérateur',
@@ -4316,6 +4384,17 @@ const ADMIN = (() => {
           l.forEach(s => out(`${ddhh(s.created_at)} · ${s.from} signale ${s.to}${s.reason ? ' : ' + s.reason : ''}`, 'err'));
           return out('Tu peux faire /info pseudo, /avert pseudo raison, /mute pseudo 10… puis /signalements vider.');
         }
+        case 'virements': case 'virement': {
+          const r = await LB.rest('transfers?select=from_user,to_user,amount,fee,created_at&order=id.desc&limit=15');
+          if (!r.ok || !Array.isArray(r.data)) return out('⛔ permission denied', 'err');
+          if (!r.data.length) return out('Aucun virement pour l’instant.');
+          const ids = [...new Set(r.data.flatMap(x => [x.from_user, x.to_user]))];
+          const p = await LB.rest('profiles?select=user_id,name&user_id=in.(' + ids.join(',') + ')');
+          const nm = Object.fromEntries((p.ok && Array.isArray(p.data) ? p.data : []).map(x => [x.user_id, x.name]));
+          out('— 💸 Derniers virements entre joueurs —');
+          r.data.forEach(x => out(`${ddhh(x.created_at)} · ${nm[x.from_user] || '?'} → ${nm[x.to_user] || '?'} : ${M(x.amount)} (frais ${M(x.fee)})`));
+          return;
+        }
         case 'clearchat': { const r = await A.clearChat(); return r.ok ? out('🧹 Chat vidé pour tout le monde.', 'ok') : out('⛔ Refusé : ' + r.error, 'err'); }
         case 'ban': case 'unban': case 'unbanip': {
           const who = t[1]; if (!who) return out(cmd === 'ban' ? 'Ex : /ban pseudo triche' : 'Ex : /unban pseudo', 'err');
@@ -4429,7 +4508,7 @@ const ADMIN = (() => {
     ['delchat', 'pseudo', 'effacer ses messages'], ['clearchat', '', 'vider tout le chat'],
     ['avert', 'pseudo [raison]', 'avertissement en grand sur son écran'], ['lent', 'secondes', 'mode lent du chat (0 = arrêt)'],
     ['mutes', '', 'joueurs muets en ce moment'], ['signalements', '[vider]', 'joueurs signalés par les autres'],
-    ['suspects', '[vider]', 'suspects détectés par le bot'], ['renommer', 'pseudo nouveau', 'changer son pseudo'],
+    ['suspects', '[vider]', 'suspects détectés par le bot'], ['virements', '', 'derniers virements entre joueurs'], ['renommer', 'pseudo nouveau', 'changer son pseudo'],
     ['modo', 'pseudo', 'nommer un modérateur'], ['unmodo', 'pseudo', 'retirer un modérateur'], ['modos', '', 'liste des modérateurs'], ['mdp', 'pseudo', 'mot de passe temporaire'],
     ['joueurs', '', 'liste des joueurs'], ['annonce', 'texte', 'message pour tous'],
     ['event', 'argent|casino|dore valeur minutes', '🔥 événement pour tous'], ['happyhour', '[minutes]', '🔥 revenus ×2 + casino ×2'], ['abuse', '[pseudo]', '🔥 panneau : tu choisis pour qui et quels boosts'], ['jeton', 'pseudo… [nombre]', '🔥 jetons dorés pour des joueurs choisis'],
@@ -4440,7 +4519,7 @@ const ADMIN = (() => {
   ];
   const PLAYER_CMDS = ['give', 'take', 'set', 'doubler', 'multiplier', 'vider', 'reset', 'livret', 'etoiles', 'fer', 'item', 'boost', 'info', 'ban', 'unban', 'banip', 'unbanip', 'mute', 'unmute', 'delchat', 'avert', 'renommer', 'modo', 'unmodo', 'mdp', 'abuse', 'jeton'];
   // le modérateur : pouvoirs limités (vérifiés aussi par le serveur)
-  const MODO_OK = ['help', 'aide', 'annonce', 'abuse', 'mute', 'unmute', 'mutes', 'delchat', 'clearchat', 'lent', 'slow', 'avert', 'avertir', 'warn', 'signalements', 'reports', 'suspects', 'joueurs', 'info', 'lock', 'fermer', 'verrouiller'];
+  const MODO_OK = ['help', 'aide', 'annonce', 'abuse', 'virements', 'virement', 'mute', 'unmute', 'mutes', 'delchat', 'clearchat', 'lent', 'slow', 'avert', 'avertir', 'warn', 'signalements', 'reports', 'suspects', 'joueurs', 'info', 'lock', 'fermer', 'verrouiller'];
   const MODO_HELP = [
     '— 🛡️ Console modérateur —',
     '— Chat —',
@@ -4455,6 +4534,7 @@ const ADMIN = (() => {
     '/signalements                    joueurs signalés par les autres (ils tapent /signaler pseudo raison)',
     '/signalements vider              effacer la liste une fois traitée',
     '/suspects                        joueurs repérés par le bot',
+    '/virements                       derniers virements entre joueurs',
     '/joueurs · /info pseudo          voir les joueurs : en ligne, muet, avertissements',
     '— 📢 Annonce —',
     '/annonce texte                   annonce pour tous, marquée MODO (1 par minute, 140 caractères)',
@@ -4545,9 +4625,9 @@ const ADMIN = (() => {
     ['clover', '🍀 Trèfle', 'boost'], ['gains', '💰 Gains boostés', 'boost'], ['shield', '🛡️ Assurance', 'boost'],
     ['turbo', '⚡ Clics turbo', 'boost'], ['prod', '🏭 Revenus ×3 (boost)', 'boost'], ['rumor', '📈 Rumeur BadCoin', 'boost'],
     ['mines', '🔍 Détecteur de mines', 'once'], ['wheel', '🎡 Roue rechargée', 'once'],
-    ['magnet', '✨ Jetons dorés', 'count', '3', '✨ {v} jetons dorés'], ['pluie', '💵 Argent pour chacun', 'money', '10k', '💵 {v} chacun'],
-    ['argent', '💸 Revenus ×', 'event', '3', '💸 revenus ×{v}'], ['casino', '🎰 Gains casino ×', 'event', '2', '🎰 casino ×{v}'],
-    ['dore', '🌟 Case dorée %', 'event', '25', '🌟 case dorée {v} %'], ['annonce', '📢 Grande annonce', 'flag'],
+    ['magnet', '✨ Jetons dorés (max 5)', 'count', '3', '✨ {v} jetons dorés'], ['pluie', '💵 Argent pour chacun', 'money', '10k', '💵 {v} chacun'],
+    ['argent', '💸 Revenus × (max 2)', 'event', '2', '💸 revenus ×{v}'], ['casino', '🎰 Casino × (max 1,5)', 'event', '1.5', '🎰 casino ×{v}'],
+    ['dore', '🌟 Case dorée % (max 15)', 'event', '10', '🌟 case dorée {v} %'], ['annonce', '📢 Grande annonce', 'flag'],
   ];
   const abBox = $('#aAb'), abBtn = $('#aAbBtn'); let abWho = 'tous', abPre = [];
   $('#abItems').innerHTML = AB_ITEMS.map(([k, l, ty, v]) => `<label class="abi" data-k="${k}" data-t="${ty}"><input type="checkbox"${k === 'annonce' ? ' checked' : ''}><span>${l}</span>${v !== undefined ? `<input class="v" value="${v}" inputmode="decimal" aria-label="${l}">` : ''}</label>`).join('');
@@ -4592,17 +4672,20 @@ const ADMIN = (() => {
   $('#abNone').onclick = () => abBox.querySelectorAll('.abi input[type=checkbox]').forEach(i => { i.checked = false; });
   $('#abGo').onclick = () => abLaunch().catch(e => out('Erreur : ' + (e && e.message || e), 'err'));
   async function abLaunch(){
-    const A = LB.admin, min = Math.min(60, Math.max(1, parseInt($('#abMin').value, 10) || 5));
-    const num = s => parseFloat(String(s).replace(',', '.')), cnt = s => Math.max(1, Math.min(30, Math.round(num(s) || 1)));
+    // nerf 13/11 : plafonds pour l'admin aussi (revenus ×2, casino ×1,5, case dorée 15 %, 5 jetons, 15 min ; 5 min pour les modos)
+    const AB_CAP = {argent: 2, casino: 1.5, dore: 15};
+    const A = LB.admin, min = Math.min(role === 'modo' ? 5 : 15, Math.max(1, parseInt($('#abMin').value, 10) || 5));
+    const num0 = s => parseFloat(String(s).replace(',', '.')), cnt = s => Math.max(1, Math.min(5, Math.round(num0(s) || 1)));
+    const capOf = {}; const num = s => num0(s);
     const items = [...abBox.querySelectorAll('.abi')].filter(l => !l.classList.contains('off') && l.querySelector('input[type=checkbox]').checked)
       .map(l => { const it = AB_ITEMS.find(x => x[0] === l.dataset.k), vi = l.querySelector('.v'); return {k: it[0], t: it[2], label: it[1], sum: it[4], v: vi ? vi.value.trim() : ''}; });
     const real = items.filter(x => x.t !== 'flag'), annonce = items.some(x => x.t === 'flag');
     if (!real.length) return out(abWho === 'choix' ? 'Coche au moins un boost (revenus ×, casino × et case dorée sont seulement pour tout le monde).' : 'Coche au moins un boost ou un bonus.', 'err');
     for (const x of real){
-      if (x.t === 'event' && !(num(x.v) > 0)) return out(`Valeur invalide pour « ${x.label} » (ex : 3).`, 'err');
+      if (x.t === 'event'){ const n = num(x.v); if (!(n > 0)) return out(`Valeur invalide pour « ${x.label} » (ex : 2).`, 'err'); x.v = String(Math.min(AB_CAP[x.k], n)); }
       if (x.t === 'money' && !(parseAmt(x.v) > 0)) return out('Montant invalide pour l’argent (ex : 10k, 2M).', 'err');
     }
-    const txt = real.map(x => x.sum ? x.sum.replace('{v}', x.t === 'count' ? cnt(x.v) : x.k === 'dore' ? Math.min(100, num(x.v)) : x.v) : x.label).join(', ');
+    const txt = real.map(x => x.sum ? x.sum.replace('{v}', x.t === 'count' ? cnt(x.v) : String(x.v).replace('.', ',')) : x.label).join(', ');
     if (role === 'modo'){
       // modo : le serveur vérifie et limite tout (staff_abuse_pick)
       const itemsObj = {}; for (const x of real) itemsObj[x.k] = x.t === 'count' ? cnt(x.v) : x.t === 'event' ? num(x.v) : 1;
@@ -4618,7 +4701,7 @@ const ADMIN = (() => {
         if (x.t === 'boost') jobs.push(A.event('boost', min, 10, null, x.k));
         else if (x.t === 'once') jobs.push(A.event('boost', 1, 10, null, x.k));
         else if (x.t === 'count') jobs.push(A.event('boost', cnt(x.v), 10, null, 'magnet'));
-        else if (x.t === 'event') jobs.push(A.event(x.k, x.k === 'dore' ? Math.min(100, num(x.v)) : num(x.v), min, 'ADMIN ABUSE 🔥'));
+        else if (x.t === 'event') jobs.push(A.event(x.k, num(x.v), min, 'ADMIN ABUSE 🔥'));
         else if (x.t === 'money') jobs.push(A.event('pluie', parseAmt(x.v), 10));
       }
       if (annonce) jobs.push(A.event('annonce', 0, .4, `🔥 ADMIN ABUSE pour tout le monde (${min} min) : ${txt} !`.slice(0, 200)));
@@ -4993,7 +5076,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261113142953';
+const GAME_BUILD = '20261113143646';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

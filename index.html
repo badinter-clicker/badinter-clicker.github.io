@@ -3333,7 +3333,8 @@ const LB = (() => {
     await rest('rpc/seen_ping', {method: 'POST', body: '{}'}); lastSeen = Date.now();
     const bn = await rest('rpc/is_banned', {method: 'POST', body: JSON.stringify({uid: user.id})});
     if (bn.ok && bn.data === true){
-      clearSess(); uid = null; render();
+      // la partie du compte banni ne reste pas dans le navigateur (sinon elle repartait sur un nouveau compte)
+      clearSess(); uid = null; applyData(fresh()); S.tr = {prices: null, pos: {}}; save(); refreshAll(); render();
       toast('⛔ Compte banni', 'Ce compte a été banni par l’admin.', 'var(--red)');
       accMsg('⛔ Ce compte a été banni par l’admin.', true);
       return false;
@@ -3351,7 +3352,12 @@ const LB = (() => {
     blocked = null;
     uid = user.id;
     S.pseudo = (user.user_metadata && user.user_metadata.pseudo) || S.pseudo;
-    if (isNew){ S.owner = uid; save(); await cloudSave(true); await sendScore(true); }
+    if (isNew){
+      // nouveau compte = nouvelle partie : on ne recopie JAMAIS la partie d'un autre compte
+      // (avant, créer un compte reprenait l'argent, l'avatar… du dernier compte utilisé sur ce navigateur)
+      if (S.owner && S.owner !== uid){ const ps = S.pseudo; applyData(fresh()); S.tr = {prices: null, pos: {}}; S.pseudo = ps; refreshAll(); }
+      S.owner = uid; save(); await cloudSave(true); await sendScore(true);
+    }
     else {
       const r = await rest('saves?select=data&user_id=eq.' + uid);
       const row = r.ok && Array.isArray(r.data) ? r.data[0] : null;
@@ -3428,7 +3434,7 @@ const LB = (() => {
         if (!r.data || !r.data.access_token){ accMsg('Compte créé, mais la connexion automatique n’a pas marché. Clique sur « Se connecter ».', true); return; }
         storeSess(r.data); S.pseudo = name;
         await onLogin(r.data.user, true);
-        toast('Compte créé 🎉', `Bienvenue ${name} ! Ta partie actuelle est maintenant sauvegardée en ligne.`, 'var(--green)');
+        toast('Compte créé 🎉', `Bienvenue ${name} ! Ta partie est sauvegardée en ligne automatiquement.`, 'var(--green)');
       } else {
         const r = await api('/auth/v1/token?grant_type=password', {method: 'POST', headers: H(), body: JSON.stringify({email: s + DOMAIN, password: pass})});
         if (!r.ok){ accMsg(r.status === 0 ? whyText() : 'Pseudo ou mot de passe incorrect.', true); return; }
@@ -4076,7 +4082,7 @@ const ADMIN = (() => {
     '/modos                           liste des modérateurs',
     '/mdp pseudo                      mot de passe temporaire pour un joueur qui a oublié le sien',
     '/suspects vider                  effacer la liste',
-    'Le bot rend muet 10 min un joueur qui envoie 3 insultes en 10 min (visible dans /logs).',
+    'Le bot rend muet 10 min un joueur qui envoie 3 insultes en 10 min, et 30 min un joueur qui envoie un score impossible (il ne bannit plus jamais : c’est toi qui décides). Visible dans /logs.',
     '/joueurs                         liste des joueurs',
     '— Pour tout le monde, en direct —',
     '/annonce texte                   message en grand pour tous (10 s)',
@@ -4698,7 +4704,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261113103147';
+const GAME_BUILD = '20261113103803';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

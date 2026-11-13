@@ -482,10 +482,12 @@ body.gated .toasts{z-index:101}
 .mc-badge{min-width:18px;padding:0 5px;border-radius:99px;background:var(--red);color:#fff;font-size:11px;line-height:18px;text-align:center}
 .devcode{font:700 22px/1.3 ui-monospace,Consolas,monospace;letter-spacing:2px;color:var(--gold);background:var(--bg2);border:1px dashed var(--gold);border-radius:10px;padding:12px;text-align:center;margin:8px 0;user-select:all;word-break:break-all}
 .lb{display:flex;flex-direction:column;gap:4px}
-.lbrow{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 12px;border-radius:10px;background:var(--bg2);border:1px solid var(--line2);font-variant-numeric:tabular-nums}
+.lbrow{display:grid;grid-template-columns:44px minmax(0,1fr) auto 36px;gap:10px;align-items:center;padding:8px 12px;border-radius:10px;background:var(--bg2);border:1px solid var(--line2);font-variant-numeric:tabular-nums}
 .lbrow .rk{font-weight:700;color:var(--muted);text-align:center}
 .lbrow .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
 .lbrow .sc{font-weight:700;color:var(--gold)}
+.lbrow .vb{background:none;border:1px solid var(--line2);border-radius:8px;padding:3px 0;font-size:15px;line-height:1.2;cursor:pointer;width:34px}
+.lbrow .vb:hover{background:rgba(242,195,90,.15);border-color:var(--gold)}
 .lbrow.r1{border-color:#f2c35a;background:linear-gradient(90deg,rgba(242,195,90,.22),var(--bg2))}
 .lbrow.r2{border-color:#c9d1d9} .lbrow.r3{border-color:#cd7f32}
 .lbrow.me{outline:2px solid var(--green)}
@@ -791,7 +793,7 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
       </div>
       <div class="card">
         <h2>💸 Virement à un joueur</h2>
-        <p class="small">Envoie de l’argent de ton solde à un autre joueur. Frais : 5 % en plus (ils disparaissent). Un virement toutes les 20 secondes. Le serveur vérifie que tu as vraiment l’argent.</p>
+        <p class="small">Envoie de l’argent de ton solde à un autre joueur (ou clique sur 💸 à côté d’un joueur dans le Classement). Il faut avoir au moins 10 M€ sur ton solde pour envoyer. Frais : 5 % en plus (ils disparaissent). Un virement toutes les 20 secondes.</p>
         <div class="pane-h" style="color:var(--ink)"><input id="vrTo" class="field" list="vrList" placeholder="Pseudo du joueur" autocomplete="off" aria-label="Pseudo du joueur qui reçoit"><datalist id="vrList"></datalist></div>
         <div class="pane-h" style="color:var(--ink)"><input id="vrAmt" class="field" inputmode="decimal" placeholder="Montant (ex : 10k, 2M)" aria-label="Montant du virement"><span id="vrFmt" class="okf"></span></div>
         <div class="qb" id="vrQ"><button type="button" data-b="p10">10 % de mon argent</button><button type="button" data-b="p50">La moitié</button></div>
@@ -3159,9 +3161,17 @@ function livWithdraw(){
   renderLivret();
 }
 /* ----- Virements entre joueurs (vérifiés par le serveur : vraie partie, 5 % de frais, 1 toutes les 20 s) ----- */
-const VR_FEE = .05;
+const VR_FEE = .05, VR_MIN = 1e7;   // il faut au moins 10 M€ sur son solde pour envoyer (vérifié aussi par le serveur)
+// bouton 💸 du classement : ouvre le virement vers ce joueur
+function vrOpenFor(name){
+  const b = $('#nav [data-v="livret"]'); if (b) b.click();
+  $('#vrTo').value = name; vrRender();
+  setTimeout(() => { $('#vrTo').closest('.card').scrollIntoView({behavior: 'smooth', block: 'center'}); $('#vrAmt').focus(); }, 80);
+  if (S.pts < VR_MIN) toast('💸 Pas encore', `Il faut avoir au moins ${M(VR_MIN)} sur ton solde pour faire des virements.`, 'var(--gold)');
+}
 function vrRender(){
   const raw = $('#vrAmt').value.trim(), v = parseAmt(raw), el = $('#vrFmt');
+  if (S.pts < VR_MIN){ el.textContent = `il te faut ${M(VR_MIN)} sur ton solde pour envoyer`; el.classList.add('bad'); return; }
   if (!raw){ el.textContent = ''; el.classList.remove('bad'); return; }
   const ok = isFinite(v) && v >= 100, poor = v * (1 + VR_FEE) > S.pts;
   el.textContent = ok ? `= ${M(v)} + ${M(v * VR_FEE)} de frais` + (poor ? ' · pas assez !' : '') : 'montant invalide (100 € minimum)';
@@ -3177,6 +3187,7 @@ async function vrSend(){
   if (vrBusy) return;
   if (!LB.loggedIn()) return toast('Connecte-toi', 'Il faut un compte pour faire un virement.', 'var(--red)');
   const to = $('#vrTo').value.trim(), v = parseAmt($('#vrAmt').value);
+  if (S.pts < VR_MIN) return toast('💸 Pas encore', `Il faut avoir au moins ${M(VR_MIN)} sur ton solde pour faire des virements (tu as ${M(S.pts)}).`, 'var(--red)');
   if (!to) return toast('Pseudo manquant', 'Écris le pseudo du joueur qui reçoit l’argent.', 'var(--red)');
   if (!(isFinite(v) && v >= 100)) return toast('Montant invalide', '100 € minimum (ex : 10k, 2M).', 'var(--red)');
   if (v * (1 + VR_FEE) > S.pts) return toast('Pas assez d’argent', `Il te faut ${M(v * (1 + VR_FEE))} sur ton solde (virement + 5 % de frais).`, 'var(--red)');
@@ -3781,8 +3792,10 @@ const LB = (() => {
           const av = document.createElement('span'); av.className = 'lbav';
           const tx = document.createTextNode(''); nm.append(av, tx);
           const sc = document.createElement('span'); sc.className = 'sc';
-          d.append(rk, nm, sc);
-          e = {d, rk, av, tx, sc, ak: null}; lbRows.set(r.user_id, e);
+          const vb = document.createElement('button'); vb.type = 'button'; vb.className = 'vb'; vb.textContent = '💸';
+          d.append(rk, nm, sc, vb);
+          e = {d, rk, av, tx, sc, vb, ak: null, name: r.name}; lbRows.set(r.user_id, e);
+          vb.onclick = () => vrOpenFor(e.name);
         }
         seen.add(r.user_id);
         const cls = 'lbrow' + (i < 3 ? ' r' + (i + 1) : '') + (r.user_id === uid ? ' me' : '');
@@ -3792,6 +3805,9 @@ const LB = (() => {
         if (e.ak !== ak){ e.ak = ak; e.av.innerHTML = avatarSVG(r.avatar, 30); }
         const nmT = r.name + (r.user_id === uid ? ' (toi)' : ''); if (e.tx.data !== nmT) e.tx.data = nmT;
         setT(e.sc, LABEL[cat](r[cat] || 0));
+        e.name = r.name;
+        const canSend = !!uid && r.user_id !== uid; e.vb.style.visibility = canSend ? '' : 'hidden';
+        e.vb.title = e.vb.ariaLabel = `Envoyer de l’argent à ${r.name}`;
         if (list.children[i] !== e.d) list.insertBefore(e.d, list.children[i] || null);
       });
       lbRows.forEach((e, k) => { if (!seen.has(k)){ e.d.remove(); lbRows.delete(k); } });
@@ -5228,7 +5244,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261113153516';
+const GAME_BUILD = '20261113162048';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

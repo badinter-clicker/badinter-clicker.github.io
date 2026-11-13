@@ -4107,7 +4107,7 @@ const ADMIN = (() => {
     '/joueurs                         liste des joueurs',
     '— 📢 Annonce —',
     '/annonce texte                   message en grand pour tous (10 s)',
-    '— 🔥 ADMIN ABUSE (boosts et cadeaux en direct) —',
+    '— 🔥 ADMIN ABUSE —',
     '/abuse [minutes]                 TOUT : tous les boosts + revenus ×3 + casino ×2 + case dorée pour tous (5 min)',
     '/abuse pseudo [minutes]          tous les boosts pour un seul joueur',
     '/jeton pseudo [pseudo2…] [nombre]  jetons dorés pour les joueurs choisis (/jeton tous 3 pour tout le monde)',
@@ -4320,7 +4320,7 @@ const ADMIN = (() => {
             // les modos aussi, mais limité par le serveur : 5 min max, une fois toutes les 30 min, pour tout le monde seulement
             if (who) return out('⛔ Les modos lancent l’abuse pour tout le monde seulement : /abuse [minutes]', 'err');
             const r = await A.staffAbuse(min);
-            return r.ok ? out(`🔥 ABUSE lancé pour ${r.data} min : tous les boosts + revenus ×3 + casino ×2 + case dorée pour tout le monde (annonce marquée MODO). Prochain possible dans 30 min.`, 'ok') : out('⛔ Refusé : ' + r.error, 'err');
+            return r.ok ? out(`🔥 ADMIN ABUSE lancé pour ${r.data} min : tous les boosts + revenus ×3 + casino ×2 + case dorée pour tout le monde (annonce marquée MODO). Prochain possible dans 30 min.`, 'ok') : out('⛔ Refusé : ' + r.error, 'err');
           }
           const ids = Object.values(ITEMS);
           if (who){
@@ -4393,9 +4393,10 @@ const ADMIN = (() => {
     '/signalements vider              effacer la liste une fois traitée',
     '/suspects                        joueurs repérés par le bot',
     '/joueurs · /info pseudo          voir les joueurs : en ligne, muet, avertissements',
-    '— 🔥 Abuse et annonces —',
+    '— 📢 Annonce —',
     '/annonce texte                   annonce pour tous, marquée MODO (1 par minute, 140 caractères)',
-    '/abuse [minutes]                 🔥 tous les boosts + revenus ×3 + casino ×2 pour tout le monde (5 min max, 1 fois toutes les 30 min)',
+    '— 🔥 ADMIN ABUSE —',
+    '/abuse [minutes]                 tous les boosts + revenus ×3 + casino ×2 pour tout le monde (5 min max, 1 fois toutes les 30 min)',
     'Limites anti-abus : 6 mutes par 10 min, 5 effacements du chat par 5 min. L’admin peut te rendre muet ou t’avertir comme les autres.',
     'Dans le chat, tes messages ont le tag [MODO] en bleu et le mode lent ne s’applique pas à toi.',
     'Tu ne peux ni donner, ni retirer, ni bannir : c’est réservé à l’admin. Tes actions sont visibles par l’admin.',
@@ -4412,7 +4413,7 @@ const ADMIN = (() => {
     if (i >= 2 && cmd === 'jeton') return pick(names, 'joueur (ou un nombre à la fin)');
     if (i === 1 && cmd === 'event') return pick(['argent', 'casino', 'dore'], 'type d’événement');
     if (i === 1 && cmd === 'roue') return pick(['tous'], 'tout le monde');
-    if (i === 1 && (cmd === 'help' || cmd === 'aide')) return pick(role === 'modo' ? ['abuse', 'chat', 'joueurs'] : ['abuse', 'annonce', 'chat', 'joueurs', 'modo', 'bot', 'toi'], 'catégorie');
+    if (i === 1 && (cmd === 'help' || cmd === 'aide')) return pick(role === 'modo' ? ['abuse', 'annonce', 'chat', 'joueurs'] : ['abuse', 'annonce', 'chat', 'joueurs', 'modo', 'bot', 'toi'], 'catégorie');
     if (i === 1 && cmd === 'signalements') return pick(['vider'], 'effacer la liste');
     if (i === 1 && cmd === 'lent') return pick(['0', '5', '10', '30'], 'secondes entre deux messages');
     if (i === 2 && cmd === 'boost') return pick(Object.keys(ITEMS), 'boost');
@@ -4827,7 +4828,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261113113201';
+const GAME_BUILD = '20261113113552';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

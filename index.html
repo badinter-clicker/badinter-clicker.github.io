@@ -3246,7 +3246,7 @@ function renderLivret(){
 const LB_URL = 'https://fevgyiuxflxbuqkxyppr.supabase.co',
   LB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZldmd5aXV4Zmx4YnVxa3h5cHByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQxNzI0NzMsImV4cCI6MjEwOTc0ODQ3M30.9-SETeEqjrPeM3VvpHSGIjmq8n5Z9oK-8nKIV9U1aPo';
 const LB = (() => {
-  let uid = null, sess = null, state = 'off', why = '', cat = 'fortune', lastScore = 0, lastCloud = 0, rows = [], mode = 'login', busyAcc = false;
+  let loadT = 0, uid = null, sess = null, state = 'off', why = '', cat = 'fortune', lastScore = 0, lastCloud = 0, rows = [], mode = 'login', busyAcc = false;
   const AUTH_KEY = 'badinterCasino_session';
   const NAME_RE = /^[\p{L}\p{N} _-]{2,16}$/u, DOMAIN = '@joueurs.badinter-casino.app', SITE = 'https://badinter-clicker.github.io/';
   const LABEL = {fortune: v => M(v), sky_best: v => '×' + fx(v), tower_best: v => v + ' étages', stars: v => v + ' ★', lifetime: v => M(v), rebirths: v => v + ' ♻️', playtime: v => fmtTime(v)};
@@ -3280,9 +3280,14 @@ const LB = (() => {
   // --- petit client HTTP pour Supabase ---
   const H = tok => ({'apikey': LB_KEY, 'Authorization': 'Bearer ' + (tok || LB_KEY), 'Content-Type': 'application/json'});
   async function api(path, opt = {}){
-    let res;
-    try { res = await fetch(LB_URL + path, opt); } catch (e) { return {ok: false, status: 0, data: null, error: 'réseau'}; }
-    const txt = await res.text(); let data = null;
+    // délai maximum : sans réponse du serveur (réseau qui coupe, bloqueur…), on abandonne au lieu d'attendre pour toujours
+    const ac = typeof AbortController === 'function' ? new AbortController() : null;
+    const tm = ac ? setTimeout(() => ac.abort(), 12000) : 0;
+    let res, txt;
+    try { res = await fetch(LB_URL + path, ac ? {...opt, signal: ac.signal} : opt); txt = await res.text(); }
+    catch (e) { clearTimeout(tm); return {ok: false, status: 0, data: null, error: 'réseau'}; }
+    clearTimeout(tm);
+    let data = null;
     try { data = txt ? JSON.parse(txt) : null; } catch (e) { data = txt; }
     return {ok: res.ok, status: res.status, data, error: res.ok ? null : String((data && (data.msg || data.message || data.error_description || data.error_code || data.error)) || ('HTTP ' + res.status))};
   }
@@ -3504,10 +3509,14 @@ const LB = (() => {
 
   async function init(){
     if (state === 'loading' || state === 'ready') return;
-    state = 'loading'; render();
+    state = 'loading'; loadT = Date.now(); render();
     // on essaie de se connecter partout ; on ne parle de claude.ai que si on y est vraiment
     const p = await api('/rest/v1/scores?select=user_id&limit=1', {headers: H()});
-    if (!p.ok){ state = 'error'; why = p.status === 0 ? (onClaude() ? 'claude' : 'bloque') : String(p.status); render(); return; }
+    if (!p.ok){
+      state = 'error'; why = p.status === 0 ? (onClaude() ? 'claude' : 'bloque') : String(p.status); render();
+      if (!onClaude()) setTimeout(() => { if (state === 'error'){ state = 'off'; init(); } }, 8000);   // on réessaie tout seul
+      return;
+    }
     state = 'ready';
     try {
       const s = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null');
@@ -3611,7 +3620,11 @@ const LB = (() => {
     e.preventDefault();
     if (busyAcc) return;
     if (state === 'error'){ accMsg(whyText(), true); state = 'off'; init(); return; }
-    if (state !== 'ready'){ accMsg('Connexion au serveur en cours, réessaie dans une seconde…', true); return; }
+    if (state !== 'ready'){
+      // connexion bloquée depuis trop longtemps : on la relance
+      if (state === 'off' || (state === 'loading' && Date.now() - loadT > 8000)){ state = 'off'; init(); }
+      accMsg('Connexion au serveur en cours, réessaie dans quelques secondes… Si ça dure : vérifie ta connexion internet, recharge la page (Ctrl+F5) ou désactive le bloqueur de pubs pour ce site.', true); return;
+    }
     const name = $('#accName').value.trim().replace(/\s+/g, ' '), pass = $('#accPass').value, s = slug(name);
     if (!NAME_RE.test(name) || s.length < 2){ accMsg('Pseudo invalide : entre 2 et 16 caractères (lettres, chiffres, espaces, - et _).', true); return; }
     if (pass.length < 6){ accMsg('Le mot de passe doit faire au moins 6 caractères.', true); return; }
@@ -5215,7 +5228,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261113153021';
+const GAME_BUILD = '20261113153516';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

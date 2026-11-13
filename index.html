@@ -337,6 +337,11 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 @keyframes annin{from{transform:translate(-50%,-140%) scale(.9);opacity:0}}
 @keyframes annglow{to{box-shadow:0 14px 40px rgba(0,0,0,.6),0 0 60px rgba(255,211,77,.9)}}
 .annbar.modo{background:linear-gradient(100deg,#13315f,#2c56cf);border-color:#6aa8ff}
+.annbar.annonceur{background:linear-gradient(100deg,#0f4d3a,#1f9e6a);border-color:#5fe3a8}
+.annbar.annonceur .anntxt small{color:#d4ffe9}
+.mc-pin{align-self:flex-start;max-width:100%;background:rgba(242,195,90,.2);border:1px solid rgba(242,195,90,.65);color:#ffe7a8;padding:4px 9px;border-radius:6px;font:600 13px/1.35 var(--f-body);overflow-wrap:anywhere;text-shadow:1px 1px 0 #000}
+.mc-pin small{color:#d9c48c;font-weight:400}
+.aline.staff{color:#c9a7ff}
 .annbar.modo .anntxt small{color:#cfe2ff}
 .annico{font-size:clamp(28px,5vw,44px);flex:none;animation:wob 1.2s ease-in-out infinite}
 .anntxt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
@@ -965,6 +970,7 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
   <div class="warncard"><div class="wi" aria-hidden="true">⚠️</div><b id="warnT">Avertissement d’un modérateur</b><p id="warnTxt"></p><small id="warnBy"></small><button type="button" id="warnOk">J’ai compris</button></div>
 </div>
 <div class="mc" id="mc" hidden>
+  <div class="mc-pin" id="mcPin" hidden></div>
   <div class="mc-log" id="mcLog" aria-live="polite"></div>
   <form class="mc-form" id="mcForm" hidden autocomplete="off"><input id="mcIn" maxlength="200" placeholder="Message pour tous les joueurs… (Échap pour fermer)" aria-label="Message du chat"><button class="btn" type="submit">Envoyer</button></form>
 </div>
@@ -1817,7 +1823,8 @@ function showAnn(e){
   ANN.id = e.id; ANN.ends = new Date(e.ends_at).getTime();
   $('#annTxt').textContent = e.message || '';
   // annonce d'un modérateur : étiquette « MODO » + son pseudo (pas « admin »)
-  bar.querySelector('.anntxt small').textContent = e.by_modo ? `🛡️ MODO · ${e.author_name || ''}` : 'Annonce de l’admin';
+  bar.querySelector('.anntxt small').textContent = e.by_role === 'annonceur' ? `📢 ANNONCEUR · ${e.author_name || ''}` : e.by_modo ? `🛡️ MODO · ${e.author_name || ''}` : 'Annonce de l’admin';
+  bar.classList.toggle('annonceur', e.by_role === 'annonceur');
   bar.querySelector('.annico').textContent = e.by_modo ? '🛡️' : '📢';
   bar.classList.toggle('modo', !!e.by_modo);
   bar.hidden = false; bar.classList.remove('in'); void bar.offsetWidth; bar.classList.add('in');
@@ -3297,13 +3304,13 @@ const LB = (() => {
   }
 
   // --- Admin et événements en temps réel (les pouvoirs sont vérifiés par le serveur) ---
-  let lastPoll = 0, polling = false, lastSeen = 0;
+  let lastPoll = 0, polling = false, lastSeen = 0, kickN = 0;
   const seenEv = new Set();
   async function poll(){
     if (state !== 'ready' || polling || Date.now() - lastPoll < 5000) return;
     polling = true; lastPoll = Date.now();
     try {
-      const r = await api(`/rest/v1/events?select=id,kind,item,value,message,ends_at,by_modo,author_name&ends_at=gt.${encodeURIComponent(new Date().toISOString())}&order=created_at.asc`, {headers: H()});
+      const r = await api(`/rest/v1/events?select=id,kind,item,value,message,ends_at,by_modo,author_name,by_role&ends_at=gt.${encodeURIComponent(new Date().toISOString())}&order=created_at.asc`, {headers: H()});
       if (r.ok && Array.isArray(r.data)) applyEvents(r.data);
       if (uid){
         if (Date.now() - lastSeen > 300000){ lastSeen = Date.now(); rest('rpc/seen_ping', {method: 'POST', body: '{}'}); }
@@ -3312,6 +3319,18 @@ const LB = (() => {
           g.data.forEach(applyGift);
           await rest('gifts?id=in.(' + g.data.map(x => x.id).join(',') + ')', {method: 'DELETE'});
           save(); cloudSave(true);
+        }
+        // kick par un modo / l'admin : on sauvegarde, on déconnecte, et on explique pourquoi (il peut se reconnecter)
+        if (++kickN % 3 === 0){
+          const k = await rest(`kicks?select=id,reason,by_name&user_id=eq.${uid}&order=id.asc&limit=1`);
+          if (k.ok && Array.isArray(k.data) && k.data[0]){
+            const kk = k.data[0];
+            await rest('kicks?user_id=eq.' + uid, {method: 'DELETE'});
+            await logout(false);
+            const msg = `🥾 Tu as été déconnecté par ${kk.by_name || 'un modérateur'}` + (kk.reason ? ` : ${kk.reason}` : '') + '. Tu peux te reconnecter.';
+            accMsg(msg, true); toast('🥾 Déconnecté par le staff', msg, 'var(--red)');
+            return;
+          }
         }
       }
     } finally { polling = false; }
@@ -3450,6 +3469,13 @@ const LB = (() => {
     rename: (oldName, nm) => rest('rpc/admin_rename', {method: 'POST', body: JSON.stringify({old_name: oldName, nm})}),
     tempPass: name => rest('rpc/admin_temp_password', {method: 'POST', body: JSON.stringify({pname: name})}),
     staffAbuse: minutes => rest('rpc/staff_abuse', {method: 'POST', body: JSON.stringify({minutes})}),
+    kick: (to, reason) => rest('kicks', {method: 'POST', headers: {'Prefer': 'return=minimal'}, body: JSON.stringify({user_id: to, reason: reason || ''})}),
+    setPin: msg => rest('rpc/set_chat_pin', {method: 'POST', body: JSON.stringify({msg})}),
+    staffSay: msg => rest('staff_chat', {method: 'POST', headers: {'Prefer': 'return=minimal'}, body: JSON.stringify({msg})}),
+    staffSince: async id => { const r = await rest(id > 0 ? `staff_chat?select=id,name,msg,created_at&id=gt.${id}&order=id.asc&limit=30` : 'staff_chat?select=id,name,msg,created_at&order=id.desc&limit=3'); return r.ok && Array.isArray(r.data) ? (id > 0 ? r.data : r.data.reverse()) : null; },
+    isAnnouncer: async () => { if (!uid) return false; const r = await rest('rpc/is_announcer', {method: 'POST', body: '{}'}); return r.ok && r.data === true; },
+    setAnnouncer: (name, on) => rest('rpc/admin_set_announcer', {method: 'POST', body: JSON.stringify({pname: name, on_: on})}),
+    announcers: async () => { const r = await rest('announcers?select=user_id'); if (!r.ok || !Array.isArray(r.data)) return null; if (!r.data.length) return []; const nm = await namesOf(r.data.map(x => x.user_id)); return r.data.map(x => nm[x.user_id] || '?'); },
     staffAbusePick: (who, items, minutes) => rest('rpc/staff_abuse_pick', {method: 'POST', body: JSON.stringify({p_who: who, p_items: items, p_min: minutes})}),
     isModo: async () => { if (!uid) return false; const r = await rest('rpc/is_moderator', {method: 'POST', body: '{}'}); return r.ok && r.data === true; },
     setModo: (name, on) => rest('rpc/admin_set_modo', {method: 'POST', body: JSON.stringify({pname: name, on_: on})}),
@@ -3946,19 +3972,29 @@ const CHAT = (() => {
     tone(220, .25, 'square', .04);
   }
   $('#warnOk').onclick = () => { $('#warnBox').hidden = true; };
+  // message épinglé par un modo / l'admin (au-dessus du chat, pour tout le monde)
+  async function loadPin(){
+    const r = await LB.rest('rpc/chat_pin', {method: 'POST', body: '{}'}), el = $('#mcPin');
+    if (!r.ok) return;
+    const pn = r.data;
+    if (!pn || !pn.msg){ el.hidden = true; return; }
+    el.textContent = '📌 ' + pn.msg;
+    const s = document.createElement('small'); s.textContent = ` — ${pn.modo ? 'MODO' : 'ADMIN'} ${pn.by || ''}`; el.appendChild(s);
+    el.hidden = false;
+  }
   function tick(){
     const should = LB.loggedIn();
     if (should !== on){
       on = should; btn.hidden = !on; wrap.hidden = !on;
       log.textContent = ''; ids.clear(); last = 0; startId = -1; unread = 0; badge.hidden = true;
       if (!on) closeChat();
-      else { lastFull = lastFetch = Date.now(); fetchNew(false); }
+      else { lastFull = lastFetch = Date.now(); fetchNew(false); loadPin(); }
       return;
     }
     if (!on || document.hidden) return;
     const now = Date.now();
     if (now - lastWarn > 15000){ lastWarn = now; checkWarn(); }
-    if (now - lastFull > 20000){ lastFull = lastFetch = now; fetchNew(true); }
+    if (now - lastFull > 20000){ lastFull = lastFetch = now; fetchNew(true); loadPin(); }
     else if (now - lastFetch > (open ? 2500 : 4000)){ lastFetch = now; fetchNew(false); }
   }
   setInterval(tick, 1000);
@@ -4227,6 +4263,8 @@ const ADMIN = (() => {
     '/vider pseudo                    mettre son solde à 0',
     '/reset pseudo confirmer          remettre sa partie à zéro',
     '/info pseudo                     voir ses scores',
+    '/dossier pseudo                  tout sur lui : messages, mutes, avertissements, signalements, virements',
+    '/kick pseudo [raison]            le déconnecter (il peut revenir)',
     '/ban pseudo [raison]             bannir un tricheur',
     '/unban pseudo                    le débannir',
     '/bans                            liste des bannis',
@@ -4237,6 +4275,7 @@ const ADMIN = (() => {
     '/unmute pseudo                   lui rendre le chat',
     '/delchat pseudo                  effacer ses messages du chat',
     '/clearchat                       vider tout le chat',
+    '/epingle texte                   message épinglé en haut du chat (/epingle off pour le retirer)',
     '/avert pseudo [raison]           avertissement en grand sur son écran (3 en 24 h = muet 30 min)',
     '/lent secondes                   mode lent du chat (/lent 0 pour arrêter)',
     '/mutes                           joueurs muets en ce moment',
@@ -4249,6 +4288,9 @@ const ADMIN = (() => {
     '/modo pseudo                     nommer un modérateur',
     '/unmodo pseudo                   lui retirer ce rôle',
     '/modos                           liste des modérateurs',
+    '/staff texte                     message privé pour le staff (toi + les modos)',
+    '/annonceur pseudo                rôle annonceur : il peut seulement faire des annonces',
+    '/unannonceur pseudo · /annonceurs  retirer le rôle · liste des annonceurs',
     '/mdp pseudo                      mot de passe temporaire pour un joueur qui a oublié le sien',
     '/suspects vider                  effacer la liste',
     'Le bot rend muet 10 min un joueur qui envoie 3 insultes en 10 min, et 30 min un joueur qui envoie un score impossible (il ne bannit plus jamais : c’est toi qui décides). Visible dans /logs.',
@@ -4282,15 +4324,17 @@ const ADMIN = (() => {
     out('> ' + line, 'cmd');
     const A = LB.admin;
     if (role === 'modo' && !MODO_OK.includes(cmd)) return out('⛔ Commande réservée à l’admin. Tape /help pour voir les tiennes.', 'err');
+    if (role === 'annonceur' && !ANN_OK.includes(cmd)) return out('⛔ Tu es annonceur : tu peux seulement faire /annonce ton message.', 'err');
     if (role === 'modo' && cmd === 'suspects' && plain(t[1]) === 'vider') return out('⛔ Seul l’admin peut vider la liste.', 'err');
     try {
       switch (cmd){
         case 'help': case 'aide': {
           // /help abuse, /help chat… : une seule catégorie
-          const list = role === 'modo' ? MODO_HELP : HELP, k = plain(t.slice(1).join(' '));
+          const list = role === 'modo' ? MODO_HELP : role === 'annonceur' ? ANN_HELP : HELP, k = plain(t.slice(1).join(' '));
           if (!k){ list.forEach(h => out(h)); return out('Astuce : /help abuse, /help chat, /help joueurs… pour voir une seule catégorie.'); }
           let on = false, n = 0;
-          for (const h of list){ if (h.startsWith('—')) on = plain(h).includes(k); if (on){ out(h); n++; } }
+          const kk = /^modos?$/.test(k) ? 'moderat' : k;   // « /help modo » → catégorie Modérateurs
+          for (const h of list){ if (h.startsWith('—')) on = plain(h).includes(kk) || plain(h).includes(k); if (on){ out(h); n++; } }
           return n ? undefined : out('Catégorie inconnue. Essaie : /help abuse, /help chat, /help joueurs.', 'err');
         }
         case 'modo': case 'unmodo': {
@@ -4384,6 +4428,53 @@ const ADMIN = (() => {
           l.forEach(s => out(`${ddhh(s.created_at)} · ${s.from} signale ${s.to}${s.reason ? ' : ' + s.reason : ''}`, 'err'));
           return out('Tu peux faire /info pseudo, /avert pseudo raison, /mute pseudo 10… puis /signalements vider.');
         }
+        case 'kick': case 'expulser': {
+          const who = t[1]; if (!who) return out('Ex : /kick pseudo arrête de spammer', 'err');
+          const u = await A.find(who); if (!u) return out(`Joueur « ${who} » introuvable.`, 'err');
+          if (u.user_id === LB.uid()) return out('Tu ne peux pas te kick toi-même 😅', 'err');
+          const r = await A.kick(u.user_id, t.slice(2).join(' ').slice(0, 140));
+          return r.ok ? out(`🥾 ${u.name} va être déconnecté (dans les 15 secondes s’il joue). Il peut se reconnecter.`, 'ok') : out('⛔ Refusé : ' + r.error, 'err');
+        }
+        case 'epingle': case 'epingler': case 'pin': {
+          const m = line.trim().replace(/^\/?\S+\s*/, '');
+          if (!m) return out('Ex : /epingle Tournoi de Gratte-ciel ce soir à 20h ! · /epingle off pour le retirer', 'err');
+          const r = await A.setPin(['off', 'retirer', 'stop'].includes(plain(m)) ? '' : m.slice(0, 140));
+          return r.ok ? out(r.data ? `📌 Message épinglé en haut du chat de tout le monde : « ${r.data} » (/epingle off pour le retirer)` : '📌 Message épinglé retiré.', 'ok') : out('⛔ Refusé : ' + r.error, 'err');
+        }
+        case 'staff': {
+          const m = line.trim().replace(/^\/?\S+\s*/, '');
+          if (!m) return out('Ex : /staff Evan spamme, je le surveille (message privé pour l’admin et les modos)', 'err');
+          const r = await A.staffSay(m.slice(0, 300));
+          if (!r.ok) return out('⛔ Refusé : ' + r.error, 'err');
+          return staffPoll();
+        }
+        case 'dossier': case 'historique': {
+          const who = t[1]; if (!who) return out('Ex : /dossier pseudo', 'err');
+          const u = await A.find(who); if (!u) return out(`Joueur « ${who} » introuvable.`, 'err');
+          const id = u.user_id, R = LB.rest, arr = r => r && r.ok && Array.isArray(r.data) ? r.data : [];
+          const [pi, mu, w, rp, ch, tr] = await Promise.all([
+            A.info(u.name), A.muteOf(id),
+            R(`warnings?select=reason,by_name,created_at&user_id=eq.${id}&order=id.desc&limit=5`),
+            R(`reports?select=user_id,reason,created_at&target=eq.${id}&order=id.desc&limit=5`),
+            R(`chat?select=msg,created_at&user_id=eq.${id}&order=id.desc&limit=6`),
+            R(`transfers?select=from_user,to_user,amount,created_at&or=(from_user.eq.${id},to_user.eq.${id})&order=id.desc&limit=5`),
+          ]);
+          const RP = arr(rp), TR = arr(tr), nm = await namesMap([...RP.map(x => x.user_id), ...TR.flatMap(x => [x.from_user, x.to_user])]);
+          out(`— 📁 Dossier de ${u.name} —`);
+          if (pi) out(`${Date.now() - new Date(pi.updated_at).getTime() < 150000 ? '🟢 en ligne' : '⚫ hors ligne'} · fortune ${M(pi.fortune)} · ${pi.stars} ★ · vu ${ddhh(pi.updated_at)}`);
+          out(`Chat : ${mu ? '🔇 muet jusqu’à ' + hhmm(mu) : '💬 peut écrire'}`);
+          const W = arr(w); out(W.length ? `⚠️ Avertissements : ` + W.map(x => `${ddhh(x.created_at)} par ${x.by_name || '?'} « ${x.reason} »`).join(' · ') : '⚠️ Aucun avertissement.', W.length ? 'err' : '');
+          out(RP.length ? `🚩 Signalé : ` + RP.map(x => `${ddhh(x.created_at)} par ${nm[x.user_id] || '?'}${x.reason ? ' « ' + x.reason + ' »' : ''}`).join(' · ') : '🚩 Jamais signalé (7 derniers jours).', RP.length ? 'err' : '');
+          const CH = arr(ch); out(CH.length ? '💬 Derniers messages : ' + CH.map(x => `[${hhmm(x.created_at)}] ${x.msg}`).join(' · ') : '💬 Aucun message récent dans le chat.');
+          out(TR.length ? '💸 Virements : ' + TR.map(x => x.from_user === id ? `→ ${nm[x.to_user] || '?'} ${M(x.amount)}` : `← ${nm[x.from_user] || '?'} ${M(x.amount)}`).join(' · ') : '💸 Aucun virement.');
+          return;
+        }
+        case 'annonceur': case 'unannonceur': {
+          const who = t.slice(1).join(' '); if (!who) return out(`Ex : /${cmd} pseudo`, 'err');
+          const r = await A.setAnnouncer(who, cmd === 'annonceur');
+          return r.ok ? out(cmd === 'annonceur' ? `📢 ${r.data} est maintenant annonceur : il peut seulement faire des annonces (1 par minute, marquées ANNONCEUR).` : `✅ ${r.data} n’est plus annonceur.`, 'ok') : out('⛔ ' + r.error, 'err');
+        }
+        case 'annonceurs': { const l = await A.announcers(); return l === null ? out('⛔ permission denied', 'err') : out(l.length ? '📢 Annonceurs : ' + l.join(' · ') : 'Aucun annonceur.'); }
         case 'virements': case 'virement': {
           const r = await LB.rest('transfers?select=from_user,to_user,amount,fee,created_at&order=id.desc&limit=15');
           if (!r.ok || !Array.isArray(r.data)) return out('⛔ permission denied', 'err');
@@ -4508,7 +4599,9 @@ const ADMIN = (() => {
     ['delchat', 'pseudo', 'effacer ses messages'], ['clearchat', '', 'vider tout le chat'],
     ['avert', 'pseudo [raison]', 'avertissement en grand sur son écran'], ['lent', 'secondes', 'mode lent du chat (0 = arrêt)'],
     ['mutes', '', 'joueurs muets en ce moment'], ['signalements', '[vider]', 'joueurs signalés par les autres'],
-    ['suspects', '[vider]', 'suspects détectés par le bot'], ['virements', '', 'derniers virements entre joueurs'], ['renommer', 'pseudo nouveau', 'changer son pseudo'],
+    ['suspects', '[vider]', 'suspects détectés par le bot'], ['virements', '', 'derniers virements entre joueurs'],
+    ['dossier', 'pseudo', 'tout sur un joueur'], ['kick', 'pseudo [raison]', 'le déconnecter'], ['epingle', 'texte|off', 'message épinglé dans le chat'],
+    ['staff', 'texte', 'message privé au staff'], ['annonceur', 'pseudo', 'nommer un annonceur'], ['unannonceur', 'pseudo', 'retirer un annonceur'], ['annonceurs', '', 'liste des annonceurs'], ['renommer', 'pseudo nouveau', 'changer son pseudo'],
     ['modo', 'pseudo', 'nommer un modérateur'], ['unmodo', 'pseudo', 'retirer un modérateur'], ['modos', '', 'liste des modérateurs'], ['mdp', 'pseudo', 'mot de passe temporaire'],
     ['joueurs', '', 'liste des joueurs'], ['annonce', 'texte', 'message pour tous'],
     ['event', 'argent|casino|dore valeur minutes', '🔥 événement pour tous'], ['happyhour', '[minutes]', '🔥 revenus ×2 + casino ×2'], ['abuse', '[pseudo]', '🔥 panneau : tu choisis pour qui et quels boosts'], ['jeton', 'pseudo… [nombre]', '🔥 jetons dorés pour des joueurs choisis'],
@@ -4517,9 +4610,17 @@ const ADMIN = (() => {
     ['logs', '', 'journal de sécurité'], ['lock', '', 'fermer la console'],
     ['items', '', 'liste des objets'], ['help', '', 'toutes les commandes'],
   ];
-  const PLAYER_CMDS = ['give', 'take', 'set', 'doubler', 'multiplier', 'vider', 'reset', 'livret', 'etoiles', 'fer', 'item', 'boost', 'info', 'ban', 'unban', 'banip', 'unbanip', 'mute', 'unmute', 'delchat', 'avert', 'renommer', 'modo', 'unmodo', 'mdp', 'abuse', 'jeton'];
+  const PLAYER_CMDS = ['give', 'take', 'set', 'doubler', 'multiplier', 'vider', 'reset', 'livret', 'etoiles', 'fer', 'item', 'boost', 'info', 'ban', 'unban', 'banip', 'unbanip', 'mute', 'unmute', 'delchat', 'avert', 'renommer', 'modo', 'unmodo', 'mdp', 'abuse', 'jeton', 'dossier', 'kick', 'annonceur', 'unannonceur'];
   // le modérateur : pouvoirs limités (vérifiés aussi par le serveur)
-  const MODO_OK = ['help', 'aide', 'annonce', 'abuse', 'virements', 'virement', 'mute', 'unmute', 'mutes', 'delchat', 'clearchat', 'lent', 'slow', 'avert', 'avertir', 'warn', 'signalements', 'reports', 'suspects', 'joueurs', 'info', 'lock', 'fermer', 'verrouiller'];
+  const ANN_OK = ['help', 'aide', 'annonce', 'lock', 'fermer', 'verrouiller'];
+  const ANN_HELP = [
+    '— 📢 Console annonceur —',
+    '/annonce texte                   message en grand en haut de l’écran de tout le monde (marqué ANNONCEUR)',
+    'Exemples : /annonce Maintenance du jeu à 18h · /annonce Tournoi de Gratte-ciel ce soir à 20h !',
+    'Limites : 1 annonce par minute, 140 caractères, les gros mots sont floutés.',
+    'Tu peux seulement faire des annonces (pas de mute, pas de boosts). Tes annonces sont visibles par l’admin.',
+  ];
+  const MODO_OK = ['help', 'aide', 'annonce', 'abuse', 'virements', 'virement', 'dossier', 'historique', 'kick', 'expulser', 'epingle', 'epingler', 'pin', 'staff', 'mute', 'unmute', 'mutes', 'delchat', 'clearchat', 'lent', 'slow', 'avert', 'avertir', 'warn', 'signalements', 'reports', 'suspects', 'joueurs', 'info', 'lock', 'fermer', 'verrouiller'];
   const MODO_HELP = [
     '— 🛡️ Console modérateur —',
     '— Chat —',
@@ -4529,10 +4630,13 @@ const ADMIN = (() => {
     '/delchat pseudo                  effacer ses messages du chat',
     '/clearchat                       vider tout le chat',
     '/lent secondes                   mode lent : 1 message toutes les X s (60 max, /lent 0 pour arrêter)',
+    '/epingle texte                   message épinglé en haut du chat (/epingle off pour le retirer)',
     '— Joueurs —',
     '/avert pseudo [raison]           avertissement en grand sur son écran (3 en 24 h = muet 30 min auto)',
     '/signalements                    joueurs signalés par les autres (ils tapent /signaler pseudo raison)',
     '/signalements vider              effacer la liste une fois traitée',
+    '/dossier pseudo                  tout sur un joueur : messages, mutes, avertissements, signalements, virements',
+    '/kick pseudo [raison]            le déconnecter (il peut revenir, 3 kicks par 10 min max)',
     '/suspects                        joueurs repérés par le bot',
     '/virements                       derniers virements entre joueurs',
     '/joueurs · /info pseudo          voir les joueurs : en ligne, muet, avertissements',
@@ -4542,6 +4646,8 @@ const ADMIN = (() => {
     '/abuse  (ou le bouton 🔥 en haut)  panneau : tu choisis pour qui (tout le monde ou jusqu’à 5 joueurs) et quels boosts',
     'Limites : 5 min max, 1 fois toutes les 30 min, pas d’argent, pas pour toi ni pour un autre modo, revenus ×3 / casino ×2 / case dorée 25 % / 5 jetons max.',
     'Limites anti-abus : 6 mutes par 10 min, 5 effacements du chat par 5 min. L’admin peut te rendre muet ou t’avertir comme les autres.',
+    '— 💬 Staff —',
+    '/staff texte                     message privé pour l’admin et les modos',
     'Dans le chat, tes messages ont le tag [MODO] en bleu et le mode lent ne s’applique pas à toi.',
     'Tu ne peux ni donner, ni retirer, ni bannir : c’est réservé à l’admin. Tes actions sont visibles par l’admin.',
   ];
@@ -4551,7 +4657,7 @@ const ADMIN = (() => {
   async function loadNames(){ try { names = (await LB.admin.players()).map(p => p.name); } catch (e) {} }
   function suggestions(v){
     const parts = v.slice(1).split(' '), last = plain(parts[parts.length - 1]), cmd = plain(parts[0]), i = parts.length - 1;
-    if (i === 0) return CMDS.filter(c => c[0].startsWith(last) && (role !== 'modo' || MODO_OK.includes(c[0]))).map(c => ({fill: c[0], label: '/' + c[0], desc: (c[1] ? c[1] + ' · ' : '') + c[2]}));
+    if (i === 0) return CMDS.filter(c => c[0].startsWith(last) && (role === 'modo' ? MODO_OK.includes(c[0]) : role === 'annonceur' ? ANN_OK.includes(c[0]) : true)).map(c => ({fill: c[0], label: '/' + c[0], desc: (c[1] ? c[1] + ' · ' : '') + c[2]}));
     const pick = (list, desc) => list.filter(x => plain(x).startsWith(last)).map(x => ({fill: /\s/.test(x) ? `"${x}"` : x, label: x, desc}));
     if (i === 1 && PLAYER_CMDS.includes(cmd)) return pick(cmd === 'boost' || cmd === 'abuse' || cmd === 'jeton' ? ['tous', ...names] : names, 'joueur');
     if (i >= 2 && cmd === 'jeton') return pick(names, 'joueur (ou un nombre à la fin)');
@@ -4726,19 +4832,48 @@ const ADMIN = (() => {
   async function refresh(){
     const isA = LB.loggedIn() ? await LB.admin.check() : false;
     const isM = !isA && LB.loggedIn() ? await LB.admin.isModo() : false;
-    const r = isA ? 'admin' : isM ? 'modo' : '';
+    const isAn = !isA && !isM && LB.loggedIn() ? await LB.admin.isAnnouncer() : false;
+    const r = isA ? 'admin' : isM ? 'modo' : isAn ? 'annonceur' : '';
     if (r && (!active || r !== role)){
       if (active) off();
       active = true; role = r; chip.hidden = false;
-      chip.textContent = r === 'modo' ? '🛡️' : '⚡';
-      abBtn.hidden = !r; abClose();
-      const title = box.querySelector('.ahead b'); if (title) title.textContent = r === 'modo' ? '🛡️ Console modérateur' : '⚡ Console admin';
-      if (!log.children.length) out(r === 'modo' ? '🛡️ Tu es modérateur. Tape /help pour voir tes commandes : muet, avertissements, mode lent, signalements, annonces…' : '⚡ Mode admin actif (compte Ryzer sur ton PC). Tape une lettre pour voir les commandes (Tab ou Entrée pour compléter, ↑ pour l’historique).', 'ok');
-      loadNames();
-      toast(r === 'modo' ? '🛡️ Tu es modérateur' : '⚡ Mode admin actif', `Ta console est en bas à gauche (bouton ${r === 'modo' ? '🛡️' : '⚡'}).`, 'var(--gold)');
+      const RL = {
+        admin: ['⚡', '⚡ Console admin', '⚡ Mode admin actif', '⚡ Mode admin actif (compte Ryzer sur ton PC). Tape une lettre pour voir les commandes (Tab ou Entrée pour compléter, ↑ pour l’historique).'],
+        modo: ['🛡️', '🛡️ Console modérateur', '🛡️ Tu es modérateur', '🛡️ Tu es modérateur. Tape /help pour voir tes commandes : muet, avertissements, kick, dossier, message épinglé, chat staff, ADMIN ABUSE…'],
+        annonceur: ['📢', '📢 Console annonceur', '📢 Tu es annonceur', '📢 Tu es annonceur : tape /annonce suivi de ton message pour prévenir tout le monde (1 par minute, 140 caractères).'],
+      }[r];
+      chip.textContent = RL[0]; chip.title = RL[1];
+      abBtn.hidden = r === 'annonceur'; abClose();
+      const title = box.querySelector('.ahead b'); if (title) title.textContent = RL[1];
+      if (!log.children.length) out(RL[3], 'ok');
+      if (r === 'annonceur'){ inp.value = '/annonce '; } else loadNames();
+      staffLast = -1; staffPoll();
+      toast(RL[2], `Ta console est en bas à gauche (bouton ${RL[0]}).`, 'var(--gold)');
     } else if (!r && active) off();
   }
-  function off(){ active = false; role = ''; repLast = -1; box.hidden = true; chip.hidden = true; log.innerHTML = ''; abBtn.hidden = true; abClose(); }
+  function off(){ active = false; role = ''; repLast = -1; staffLast = -1; box.hidden = true; chip.hidden = true; log.innerHTML = ''; abBtn.hidden = true; abClose(); }
+  // chat privé du staff : les nouveaux messages arrivent dans la console (toutes les 8 s)
+  let staffLast = -1, staffBusy = false;
+  async function staffPoll(){
+    if (!active || role === 'annonceur' || staffBusy) return;
+    staffBusy = true;
+    try {
+      const l = await LB.admin.staffSince(Math.max(0, staffLast)); if (!l) return;
+      const first = staffLast < 0;
+      for (const m of l){
+        staffLast = Math.max(staffLast, m.id);
+        out(`💬 [STAFF] ${m.name || '?'} · ${hhmm(m.created_at)} : ${m.msg}`, 'staff');
+        if (!first && box.hidden && m.name !== S.pseudo) toast('💬 Message du staff', `${m.name} : ${m.msg}`, '#8fb4ff');
+      }
+      if (staffLast < 0) staffLast = 0;
+    } finally { staffBusy = false; }
+  }
+  setInterval(() => { if (!document.hidden) staffPoll(); }, 8000);
+  async function namesMap(ids){
+    const u = [...new Set(ids.filter(Boolean))]; if (!u.length) return {};
+    const p = await LB.rest('profiles?select=user_id,name&user_id=in.(' + u.join(',') + ')');
+    return Object.fromEntries((p.ok && Array.isArray(p.data) ? p.data : []).map(x => [x.user_id, x.name]));
+  }
   // un joueur en signale un autre : on prévient le modo / l'admin connecté (vérifié toutes les 30 s)
   setInterval(async () => {
     if (!active || document.hidden) return;
@@ -5076,7 +5211,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261113143646';
+const GAME_BUILD = '20261113144312';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

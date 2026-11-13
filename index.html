@@ -372,6 +372,30 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 .ahead{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid rgba(239,70,87,.4);color:var(--red)}
 .ahead b{flex:1;font-family:var(--f-body)}
 .ahead button{background:none;border:0;color:var(--muted);font-size:20px;line-height:1}
+.ahead .abtn{font-size:12px;line-height:1;background:linear-gradient(90deg,#ef4657,#f2a33a);color:#fff;border-radius:999px;padding:6px 10px;font-weight:700;cursor:pointer}
+.admin.abopen{max-height:min(700px,90vh)}
+.abp{border-bottom:1px solid rgba(239,70,87,.4);padding:8px 10px;display:flex;flex-direction:column;gap:7px;overflow-y:auto;max-height:min(470px,62vh);background:#0b0f0d}
+.abp[hidden]{display:none}
+.abp-h{display:flex;align-items:center;justify-content:space-between;color:#ffb347}
+.abp-h button{background:none;border:0;color:var(--muted);font-size:20px;line-height:1;cursor:pointer}
+.abp-l{color:#cfd8d3;font-weight:600;font-size:13px}
+.abp-l small{color:var(--muted);font-weight:400}
+.abp-seg{display:flex;gap:6px}
+.abp-seg button,.abp-row button{flex:1;background:#1a1f1c;color:#cfd8d3;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:7px 8px;font:inherit;font-size:13px;cursor:pointer}
+.abp-seg button[aria-pressed="true"]{background:rgba(242,195,90,.18);border-color:#f2c35a;color:#ffd34d;font-weight:700}
+.abp-pl{display:flex;flex-wrap:wrap;gap:4px 12px;max-height:110px;overflow-y:auto;padding:6px 8px;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:13px;color:#cfd8d3}
+.abp-pl label{display:flex;align-items:center;gap:5px;cursor:pointer}
+.abp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:5px}
+.abi{display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:13px;color:#e6ece9;cursor:pointer;background:#111614}
+.abi:has(input:checked){border-color:#f2a33a;background:rgba(242,163,58,.12)}
+.abi span{flex:1}
+.abi .v{width:58px;background:#000;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:3px 6px;font:inherit;font-size:12px}
+.abi.off{opacity:.35;pointer-events:none}
+.abp-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.abp-row label{display:flex;align-items:center;gap:5px;color:#cfd8d3;font-size:13px}
+.abp-row input{width:54px;background:#000;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:5px 6px;font:inherit}
+.abp-row .go{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
+.abp > .abp-row:last-child{position:sticky;bottom:-8px;background:#0b0f0d;padding:6px 0 4px;border-top:1px solid rgba(255,255,255,.1)}
 .alog{flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:3px;min-height:140px}
 .aline{white-space:pre-wrap;overflow-wrap:anywhere;color:#cfd8d3;line-height:1.45}
 .aline.cmd{color:#8fb4ff}.aline.ok{color:var(--green)}.aline.err{color:var(--red)}
@@ -936,7 +960,16 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
 </div>
 <button class="achip" id="aChip" type="button" hidden title="Console admin" aria-label="Ouvrir la console admin">⚡</button>
 <div class="admin" id="admin" hidden>
-  <div class="ahead"><b>⚡ Console admin</b><span class="small">tape /help</span><button type="button" id="aClose" aria-label="Fermer la console">×</button></div>
+  <div class="ahead"><b>⚡ Console admin</b><button type="button" class="abtn" id="aAbBtn" hidden>🔥 ADMIN ABUSE</button><span class="small">tape /help</span><button type="button" id="aClose" aria-label="Fermer la console">×</button></div>
+  <div class="abp" id="aAb" hidden>
+    <div class="abp-h"><b>🔥 ADMIN ABUSE</b><button type="button" id="abX" aria-label="Fermer le panneau">×</button></div>
+    <div class="abp-l">Pour qui ?</div>
+    <div class="abp-seg" id="abWho"><button type="button" data-w="tous" aria-pressed="true">🌍 Tout le monde</button><button type="button" data-w="choix" aria-pressed="false">👤 Joueurs choisis</button></div>
+    <div class="abp-pl" id="abPl" hidden></div>
+    <div class="abp-l">Quoi ? <small>coche ce que tu veux</small></div>
+    <div class="abp-grid" id="abItems"></div>
+    <div class="abp-row"><label>Durée <input id="abMin" type="number" min="1" max="60" value="5" inputmode="numeric"> min</label><button type="button" id="abAll">Tout cocher</button><button type="button" id="abNone">Rien</button><button type="button" class="go" id="abGo">🔥 Lancer</button></div>
+  </div>
   <div class="alog" id="aLog" aria-live="polite"></div>
   <div class="asug" id="aSug" role="listbox" aria-label="Suggestions" hidden></div>
   <div class="ahint" id="aHint"></div>
@@ -4108,8 +4141,8 @@ const ADMIN = (() => {
     '— 📢 Annonce —',
     '/annonce texte                   message en grand pour tous (10 s)',
     '— 🔥 ADMIN ABUSE —',
-    '/abuse [minutes]                 TOUT : tous les boosts + revenus ×3 + casino ×2 + case dorée pour tous (5 min)',
-    '/abuse pseudo [minutes]          tous les boosts pour un seul joueur',
+    '/abuse  (ou le bouton 🔥 en haut)  panneau : tu choisis pour qui (tout le monde ou des joueurs) et quels boosts',
+    '/abuse pseudo                    le panneau avec ce joueur déjà coché',
     '/jeton pseudo [pseudo2…] [nombre]  jetons dorés pour les joueurs choisis (/jeton tous 3 pour tout le monde)',
     '/boost tous objet [minutes]      un boost offert à tout le monde',
     '/roue tous                       roue de la fortune rechargée pour tous',
@@ -4322,20 +4355,9 @@ const ADMIN = (() => {
             const r = await A.staffAbuse(min);
             return r.ok ? out(`🔥 ADMIN ABUSE lancé pour ${r.data} min : tous les boosts + revenus ×3 + casino ×2 + case dorée pour tout le monde (annonce marquée MODO). Prochain possible dans 30 min.`, 'ok') : out('⛔ Refusé : ' + r.error, 'err');
           }
-          const ids = Object.values(ITEMS);
-          if (who){
-            const u = await A.find(who); if (!u) return out(`Joueur « ${who} » introuvable.`, 'err');
-            const rs = await Promise.all(ids.map(id => A.gift(u.user_id, 'boost', id, min, 'ADMIN ABUSE 🔥')));
-            const ko = rs.find(r => !r.ok);
-            return ko ? out('⛔ Refusé : ' + ko.error, 'err') : out(`🔥 ADMIN ABUSE pour ${u.name} : tous les boosts pendant ${min} min.`, 'ok');
-          }
-          const rs = await Promise.all([
-            ...ids.map(id => A.event('boost', min, 10, null, id)),
-            A.event('argent', 3, min, 'ADMIN ABUSE 🔥'), A.event('casino', 2, min), A.event('dore', 25, min),
-            A.event('annonce', 0, .4, `🔥 ADMIN ABUSE : tous les boosts, revenus ×3, casino ×2 et case dorée pour tout le monde pendant ${min} min !`),
-          ]);
-          const ko = rs.find(r => !r.ok);
-          return ko ? out('⛔ Refusé : ' + ko.error, 'err') : out(`🔥 ADMIN ABUSE lancé pour ${min} min : tous les boosts + revenus ×3 + casino ×2 + case dorée 25 % pour tout le monde. /stop pour tout arrêter.`, 'ok');
+          // admin : on ouvre le panneau ADMIN ABUSE (rien n'est lancé sans choisir pour qui et quoi)
+          abOpen(who, parseFloat(who || plain(t[1]) === 'tous' ? t[2] : t[1]) || 0);
+          return out('🔥 Panneau ADMIN ABUSE ouvert : choisis pour qui (tout le monde ou des joueurs) et quoi, puis « Lancer ».', 'ok');
         }
         case 'annonce': { const m = t.slice(1).join(' '); if (!m) return out('Écris le message : /annonce Bienvenue à tous !', 'err'); const r = await A.event('annonce', 0, .4, m.slice(0, 200)); return r.ok ? out('📢 Annonce envoyée : elle s’affiche 10 secondes en haut de l’écran de tous les joueurs connectés.', 'ok') : out('⛔ Refusé : ' + r.error, 'err'); }
         case 'event': {
@@ -4369,7 +4391,7 @@ const ADMIN = (() => {
     ['suspects', '[vider]', 'suspects détectés par le bot'], ['renommer', 'pseudo nouveau', 'changer son pseudo'],
     ['modo', 'pseudo', 'nommer un modérateur'], ['unmodo', 'pseudo', 'retirer un modérateur'], ['modos', '', 'liste des modérateurs'], ['mdp', 'pseudo', 'mot de passe temporaire'],
     ['joueurs', '', 'liste des joueurs'], ['annonce', 'texte', 'message pour tous'],
-    ['event', 'argent|casino|dore valeur minutes', '🔥 événement pour tous'], ['happyhour', '[minutes]', '🔥 revenus ×2 + casino ×2'], ['abuse', '[pseudo|tous] [minutes]', '🔥 tous les boosts pour tout le monde'], ['jeton', 'pseudo… [nombre]', '🔥 jetons dorés pour des joueurs choisis'],
+    ['event', 'argent|casino|dore valeur minutes', '🔥 événement pour tous'], ['happyhour', '[minutes]', '🔥 revenus ×2 + casino ×2'], ['abuse', '[pseudo]', '🔥 panneau : tu choisis pour qui et quels boosts'], ['jeton', 'pseudo… [nombre]', '🔥 jetons dorés pour des joueurs choisis'],
     ['pluie', 'montant', '🔥 argent pour chaque joueur connecté'], ['roue', 'tous', '🔥 recharger la roue de tout le monde'],
     ['stop', '', '🔥 tout arrêter (abuse et événements)'], ['money', 'montant', 'régler ton propre solde'],
     ['logs', '', 'journal de sécurité'], ['lock', '', 'fermer la console'],
@@ -4469,12 +4491,98 @@ const ADMIN = (() => {
     inp.value = '/'; sug.hidden = true; opts = []; hint.textContent = '';
     run(v).then(() => { inp.focus(); });
   });
-  box.addEventListener('mousedown', e => { if (!e.target.closest('button, input')) setTimeout(() => inp.focus(), 0); });
+  box.addEventListener('mousedown', e => { if (!e.target.closest('button, input, label, .abp')) setTimeout(() => inp.focus(), 0); });
   $('#aClose').onclick = () => { box.hidden = true; };
   const openBox = () => { box.hidden = false; if (!inp.value) inp.value = '/'; setTimeout(() => { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }, 0); };
   chip.onclick = openBox;
   // Plus de phrase secrète : le serveur dit lui-même si ce compte est admin (compte Ryzer + son PC verrouillé).
   // Rien dans le code ne permet de devenir admin : sans le compte ET le PC, le serveur refuse tout.
+  // ---------- Panneau ADMIN ABUSE : tu choisis pour qui (tout le monde / joueurs choisis) et quoi ----------
+  const AB_ITEMS = [
+    // [clé, nom affiché, type, valeur par défaut, texte du résumé]
+    ['clover', '🍀 Trèfle', 'boost'], ['gains', '💰 Gains boostés', 'boost'], ['shield', '🛡️ Assurance', 'boost'],
+    ['turbo', '⚡ Clics turbo', 'boost'], ['prod', '🏭 Revenus ×3 (boost)', 'boost'], ['rumor', '📈 Rumeur BadCoin', 'boost'],
+    ['mines', '🔍 Détecteur de mines', 'once'], ['wheel', '🎡 Roue rechargée', 'once'],
+    ['magnet', '✨ Jetons dorés', 'count', '3', '✨ {v} jetons dorés'], ['pluie', '💵 Argent pour chacun', 'money', '10k', '💵 {v} chacun'],
+    ['argent', '💸 Revenus ×', 'event', '3', '💸 revenus ×{v}'], ['casino', '🎰 Gains casino ×', 'event', '2', '🎰 casino ×{v}'],
+    ['dore', '🌟 Case dorée %', 'event', '25', '🌟 case dorée {v} %'], ['annonce', '📢 Grande annonce', 'flag'],
+  ];
+  const abBox = $('#aAb'), abBtn = $('#aAbBtn'); let abWho = 'tous', abPre = [];
+  $('#abItems').innerHTML = AB_ITEMS.map(([k, l, ty, v]) => `<label class="abi" data-k="${k}" data-t="${ty}"><input type="checkbox"${k === 'annonce' ? ' checked' : ''}><span>${l}</span>${v !== undefined ? `<input class="v" value="${v}" inputmode="decimal" aria-label="${l}">` : ''}</label>`).join('');
+  function abSetWho(w){
+    abWho = w; abBox.querySelectorAll('#abWho button').forEach(b => b.setAttribute('aria-pressed', b.dataset.w === w));
+    $('#abPl').hidden = w !== 'choix';
+    // revenus ×, casino ×, case dorée et annonce sont des événements pour tout le monde
+    abBox.querySelectorAll('.abi').forEach(l => { const glob = l.dataset.t === 'event' || l.dataset.t === 'flag'; l.classList.toggle('off', w === 'choix' && glob); l.title = w === 'choix' && glob ? 'Seulement pour tout le monde' : ''; });
+    if (w === 'choix') abLoadPlayers();
+  }
+  async function abLoadPlayers(){
+    const pl = $('#abPl'); if (pl.dataset.loaded === '1' && !abPre.length) return;
+    const keep = new Set([...pl.querySelectorAll('input:checked')].map(i => i.value));
+    pl.textContent = 'Chargement des joueurs…';
+    const rows = await LB.roster(), now = Date.now(), onl = r => now - new Date(r.updated_at).getTime() < 150000;
+    rows.sort((a, b) => (onl(b) - onl(a)) || a.name.localeCompare(b.name, 'fr'));
+    pl.innerHTML = '';
+    rows.forEach(r => {
+      const l = document.createElement('label'), i = document.createElement('input');
+      i.type = 'checkbox'; i.value = r.user_id; i.dataset.n = r.name;
+      i.checked = keep.has(r.user_id) || abPre.some(x => plain(x) === plain(r.name));
+      l.append(i, document.createTextNode((onl(r) ? '🟢 ' : '⚫ ') + r.name)); pl.appendChild(l);
+    });
+    if (!rows.length) pl.textContent = 'Aucun joueur trouvé.';
+    pl.dataset.loaded = '1'; abPre = [];
+  }
+  function abOpen(who, min){
+    abBox.hidden = false; box.classList.add('abopen');
+    if (min > 0) $('#abMin').value = Math.min(60, Math.round(min));
+    if (who){ abPre = [who]; abSetWho('choix'); } else abSetWho(abWho);
+  }
+  function abClose(){ abBox.hidden = true; box.classList.remove('abopen'); }
+  abBtn.onclick = () => abBox.hidden ? abOpen() : abClose();
+  $('#abX').onclick = abClose;
+  $('#abWho').addEventListener('click', e => { const b = e.target.closest('button'); if (b) abSetWho(b.dataset.w); });
+  $('#abAll').onclick = () => abBox.querySelectorAll('.abi:not(.off) input[type=checkbox]').forEach(i => { i.checked = true; });
+  $('#abNone').onclick = () => abBox.querySelectorAll('.abi input[type=checkbox]').forEach(i => { i.checked = false; });
+  $('#abGo').onclick = () => abLaunch().catch(e => out('Erreur : ' + (e && e.message || e), 'err'));
+  async function abLaunch(){
+    const A = LB.admin, min = Math.min(60, Math.max(1, parseInt($('#abMin').value, 10) || 5));
+    const num = s => parseFloat(String(s).replace(',', '.')), cnt = s => Math.max(1, Math.min(30, Math.round(num(s) || 1)));
+    const items = [...abBox.querySelectorAll('.abi')].filter(l => !l.classList.contains('off') && l.querySelector('input[type=checkbox]').checked)
+      .map(l => { const it = AB_ITEMS.find(x => x[0] === l.dataset.k), vi = l.querySelector('.v'); return {k: it[0], t: it[2], label: it[1], sum: it[4], v: vi ? vi.value.trim() : ''}; });
+    const real = items.filter(x => x.t !== 'flag'), annonce = items.some(x => x.t === 'flag');
+    if (!real.length) return out(abWho === 'choix' ? 'Coche au moins un boost (revenus ×, casino × et case dorée sont seulement pour tout le monde).' : 'Coche au moins un boost ou un bonus.', 'err');
+    for (const x of real){
+      if (x.t === 'event' && !(num(x.v) > 0)) return out(`Valeur invalide pour « ${x.label} » (ex : 3).`, 'err');
+      if (x.t === 'money' && !(parseAmt(x.v) > 0)) return out('Montant invalide pour l’argent (ex : 10k, 2M).', 'err');
+    }
+    const txt = real.map(x => x.sum ? x.sum.replace('{v}', x.t === 'count' ? cnt(x.v) : x.k === 'dore' ? Math.min(100, num(x.v)) : x.v) : x.label).join(', ');
+    if (abWho === 'tous'){
+      const jobs = [];
+      for (const x of real){
+        if (x.t === 'boost') jobs.push(A.event('boost', min, 10, null, x.k));
+        else if (x.t === 'once') jobs.push(A.event('boost', 1, 10, null, x.k));
+        else if (x.t === 'count') jobs.push(A.event('boost', cnt(x.v), 10, null, 'magnet'));
+        else if (x.t === 'event') jobs.push(A.event(x.k, x.k === 'dore' ? Math.min(100, num(x.v)) : num(x.v), min, 'ADMIN ABUSE 🔥'));
+        else if (x.t === 'money') jobs.push(A.event('pluie', parseAmt(x.v), 10));
+      }
+      if (annonce) jobs.push(A.event('annonce', 0, .4, `🔥 ADMIN ABUSE pour tout le monde (${min} min) : ${txt} !`.slice(0, 200)));
+      const rs = await Promise.all(jobs), ko = rs.find(r => !r.ok);
+      return ko ? out('⛔ Refusé : ' + ko.error, 'err') : out(`🔥 ADMIN ABUSE lancé pour tout le monde (${min} min) : ${txt}. /stop pour tout arrêter.`, 'ok');
+    }
+    const who = [...$('#abPl').querySelectorAll('input:checked')].map(i => ({id: i.value, name: i.dataset.n}));
+    if (!who.length) return out('Coche au moins un joueur.', 'err');
+    for (const u of who){
+      const js = [];
+      for (const x of real){
+        if (x.t === 'boost') js.push(A.gift(u.id, 'boost', x.k, min, 'ADMIN ABUSE 🔥'));
+        else if (x.t === 'once') js.push(A.gift(u.id, 'boost', x.k, 1, 'ADMIN ABUSE 🔥'));
+        else if (x.t === 'count') js.push(A.gift(u.id, 'boost', 'magnet', cnt(x.v), 'ADMIN ABUSE 🔥'));
+        else if (x.t === 'money') js.push(A.gift(u.id, 'money_add', null, parseAmt(x.v), 'ADMIN ABUSE 🔥'));
+      }
+      const rs = await Promise.all(js), ko = rs.find(r => !r.ok);
+      out(ko ? `⛔ ${u.name} : ${ko.error}` : `🔥 ADMIN ABUSE pour ${u.name} (${min} min) : ${txt}`, ko ? 'err' : 'ok');
+    }
+  }
   let active = false;
   async function refresh(){
     const isA = LB.loggedIn() ? await LB.admin.check() : false;
@@ -4484,13 +4592,14 @@ const ADMIN = (() => {
       if (active) off();
       active = true; role = r; chip.hidden = false;
       chip.textContent = r === 'modo' ? '🛡️' : '⚡';
+      abBtn.hidden = r !== 'admin'; if (r !== 'admin') abClose();
       const title = box.querySelector('.ahead b'); if (title) title.textContent = r === 'modo' ? '🛡️ Console modérateur' : '⚡ Console admin';
       if (!log.children.length) out(r === 'modo' ? '🛡️ Tu es modérateur. Tape /help pour voir tes commandes : muet, avertissements, mode lent, signalements, annonces…' : '⚡ Mode admin actif (compte Ryzer sur ton PC). Tape une lettre pour voir les commandes (Tab ou Entrée pour compléter, ↑ pour l’historique).', 'ok');
       loadNames();
       toast(r === 'modo' ? '🛡️ Tu es modérateur' : '⚡ Mode admin actif', `Ta console est en bas à gauche (bouton ${r === 'modo' ? '🛡️' : '⚡'}).`, 'var(--gold)');
     } else if (!r && active) off();
   }
-  function off(){ active = false; role = ''; repLast = -1; box.hidden = true; chip.hidden = true; log.innerHTML = ''; }
+  function off(){ active = false; role = ''; repLast = -1; box.hidden = true; chip.hidden = true; log.innerHTML = ''; abBtn.hidden = true; abClose(); }
   // un joueur en signale un autre : on prévient le modo / l'admin connecté (vérifié toutes les 30 s)
   setInterval(async () => {
     if (!active || document.hidden) return;
@@ -4828,7 +4937,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261113113552';
+const GAME_BUILD = '20261113114445';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

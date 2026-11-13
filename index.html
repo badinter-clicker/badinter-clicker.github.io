@@ -379,6 +379,8 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 .abp-h{display:flex;align-items:center;justify-content:space-between;color:#ffb347}
 .abp-h button{background:none;border:0;color:var(--muted);font-size:20px;line-height:1;cursor:pointer}
 .abp-l{color:#cfd8d3;font-weight:600;font-size:13px}
+.abp-note{font-size:12px;color:#8fb4ff;line-height:1.4}
+.abp-note[hidden]{display:none}
 .abp-l small{color:var(--muted);font-weight:400}
 .abp-seg{display:flex;gap:6px}
 .abp-seg button,.abp-row button{flex:1;background:#1a1f1c;color:#cfd8d3;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:7px 8px;font:inherit;font-size:13px;cursor:pointer}
@@ -963,6 +965,7 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
   <div class="ahead"><b>⚡ Console admin</b><button type="button" class="abtn" id="aAbBtn" hidden>🔥 ADMIN ABUSE</button><span class="small">tape /help</span><button type="button" id="aClose" aria-label="Fermer la console">×</button></div>
   <div class="abp" id="aAb" hidden>
     <div class="abp-h"><b>🔥 ADMIN ABUSE</b><button type="button" id="abX" aria-label="Fermer le panneau">×</button></div>
+    <div class="abp-note" id="abNote" hidden>🛡️ Limites des modos : 5 min max, 1 fois toutes les 30 min, 5 joueurs max, pas d’argent, pas pour toi ni pour un autre modo · revenus ×3, casino ×2, case dorée 25 %, 5 jetons max.</div>
     <div class="abp-l">Pour qui ?</div>
     <div class="abp-seg" id="abWho"><button type="button" data-w="tous" aria-pressed="true">🌍 Tout le monde</button><button type="button" data-w="choix" aria-pressed="false">👤 Joueurs choisis</button></div>
     <div class="abp-pl" id="abPl" hidden></div>
@@ -3337,6 +3340,7 @@ const LB = (() => {
     rename: (oldName, nm) => rest('rpc/admin_rename', {method: 'POST', body: JSON.stringify({old_name: oldName, nm})}),
     tempPass: name => rest('rpc/admin_temp_password', {method: 'POST', body: JSON.stringify({pname: name})}),
     staffAbuse: minutes => rest('rpc/staff_abuse', {method: 'POST', body: JSON.stringify({minutes})}),
+    staffAbusePick: (who, items, minutes) => rest('rpc/staff_abuse_pick', {method: 'POST', body: JSON.stringify({p_who: who, p_items: items, p_min: minutes})}),
     isModo: async () => { if (!uid) return false; const r = await rest('rpc/is_moderator', {method: 'POST', body: '{}'}); return r.ok && r.data === true; },
     setModo: (name, on) => rest('rpc/admin_set_modo', {method: 'POST', body: JSON.stringify({pname: name, on_: on})}),
     modos: async () => {
@@ -4349,13 +4353,7 @@ const ADMIN = (() => {
           // ADMIN ABUSE : tous les boosts + revenus ×3 + casino ×2 + case dorée 25 % (pour tous, ou pour un seul joueur)
           const who = t[1] && !isFinite(parseFloat(t[1])) && plain(t[1]) !== 'tous' ? t[1] : null;
           const min = Math.min(60, Math.max(1, parseFloat(who || plain(t[1]) === 'tous' ? t[2] : t[1]) || 5));
-          if (role === 'modo'){
-            // les modos aussi, mais limité par le serveur : 5 min max, une fois toutes les 30 min, pour tout le monde seulement
-            if (who) return out('⛔ Les modos lancent l’abuse pour tout le monde seulement : /abuse [minutes]', 'err');
-            const r = await A.staffAbuse(min);
-            return r.ok ? out(`🔥 ADMIN ABUSE lancé pour ${r.data} min : tous les boosts + revenus ×3 + casino ×2 + case dorée pour tout le monde (annonce marquée MODO). Prochain possible dans 30 min.`, 'ok') : out('⛔ Refusé : ' + r.error, 'err');
-          }
-          // admin : on ouvre le panneau ADMIN ABUSE (rien n'est lancé sans choisir pour qui et quoi)
+          // admin et modos : on ouvre le panneau ADMIN ABUSE (rien n'est lancé sans choisir pour qui et quoi ; limites des modos vérifiées par le serveur)
           abOpen(who, parseFloat(who || plain(t[1]) === 'tous' ? t[2] : t[1]) || 0);
           return out('🔥 Panneau ADMIN ABUSE ouvert : choisis pour qui (tout le monde ou des joueurs) et quoi, puis « Lancer ».', 'ok');
         }
@@ -4418,7 +4416,8 @@ const ADMIN = (() => {
     '— 📢 Annonce —',
     '/annonce texte                   annonce pour tous, marquée MODO (1 par minute, 140 caractères)',
     '— 🔥 ADMIN ABUSE —',
-    '/abuse [minutes]                 tous les boosts + revenus ×3 + casino ×2 pour tout le monde (5 min max, 1 fois toutes les 30 min)',
+    '/abuse  (ou le bouton 🔥 en haut)  panneau : tu choisis pour qui (tout le monde ou jusqu’à 5 joueurs) et quels boosts',
+    'Limites : 5 min max, 1 fois toutes les 30 min, pas d’argent, pas pour toi ni pour un autre modo, revenus ×3 / casino ×2 / case dorée 25 % / 5 jetons max.',
     'Limites anti-abus : 6 mutes par 10 min, 5 effacements du chat par 5 min. L’admin peut te rendre muet ou t’avertir comme les autres.',
     'Dans le chat, tes messages ont le tag [MODO] en bleu et le mode lent ne s’applique pas à toi.',
     'Tu ne peux ni donner, ni retirer, ni bannir : c’est réservé à l’admin. Tes actions sont visibles par l’admin.',
@@ -4513,7 +4512,11 @@ const ADMIN = (() => {
     abWho = w; abBox.querySelectorAll('#abWho button').forEach(b => b.setAttribute('aria-pressed', b.dataset.w === w));
     $('#abPl').hidden = w !== 'choix';
     // revenus ×, casino ×, case dorée et annonce sont des événements pour tout le monde
-    abBox.querySelectorAll('.abi').forEach(l => { const glob = l.dataset.t === 'event' || l.dataset.t === 'flag'; l.classList.toggle('off', w === 'choix' && glob); l.title = w === 'choix' && glob ? 'Seulement pour tout le monde' : ''; });
+    abBox.querySelectorAll('.abi').forEach(l => {
+      const glob = w === 'choix' && (l.dataset.t === 'event' || l.dataset.t === 'flag'), noMoney = role === 'modo' && l.dataset.t === 'money';
+      l.classList.toggle('off', glob || noMoney); l.title = noMoney ? 'Réservé à l’admin' : glob ? 'Seulement pour tout le monde' : '';
+    });
+    $('#abNote').hidden = role !== 'modo';
     if (w === 'choix') abLoadPlayers();
   }
   async function abLoadPlayers(){
@@ -4524,6 +4527,7 @@ const ADMIN = (() => {
     rows.sort((a, b) => (onl(b) - onl(a)) || a.name.localeCompare(b.name, 'fr'));
     pl.innerHTML = '';
     rows.forEach(r => {
+      if (role === 'modo' && r.user_id === LB.uid()) return;   // un modo ne peut pas se donner des boosts
       const l = document.createElement('label'), i = document.createElement('input');
       i.type = 'checkbox'; i.value = r.user_id; i.dataset.n = r.name;
       i.checked = keep.has(r.user_id) || abPre.some(x => plain(x) === plain(r.name));
@@ -4556,6 +4560,15 @@ const ADMIN = (() => {
       if (x.t === 'money' && !(parseAmt(x.v) > 0)) return out('Montant invalide pour l’argent (ex : 10k, 2M).', 'err');
     }
     const txt = real.map(x => x.sum ? x.sum.replace('{v}', x.t === 'count' ? cnt(x.v) : x.k === 'dore' ? Math.min(100, num(x.v)) : x.v) : x.label).join(', ');
+    if (role === 'modo'){
+      // modo : le serveur vérifie et limite tout (staff_abuse_pick)
+      const itemsObj = {}; for (const x of real) itemsObj[x.k] = x.t === 'count' ? cnt(x.v) : x.t === 'event' ? num(x.v) : 1;
+      if (annonce) itemsObj.annonce = 1;
+      let ids = null;
+      if (abWho === 'choix'){ ids = [...$('#abPl').querySelectorAll('input:checked')].map(i => i.value); if (!ids.length) return out('Coche au moins un joueur.', 'err'); }
+      const r = await A.staffAbusePick(ids, itemsObj, min);
+      return r.ok ? out(`🔥 ADMIN ABUSE lancé (${abWho === 'choix' ? ids.length + ' joueur(s)' : 'tout le monde'}, ${Math.min(5, min)} min max) : ${r.data}. Prochain possible dans 30 min.`, 'ok') : out('⛔ Refusé : ' + r.error, 'err');
+    }
     if (abWho === 'tous'){
       const jobs = [];
       for (const x of real){
@@ -4592,7 +4605,7 @@ const ADMIN = (() => {
       if (active) off();
       active = true; role = r; chip.hidden = false;
       chip.textContent = r === 'modo' ? '🛡️' : '⚡';
-      abBtn.hidden = r !== 'admin'; if (r !== 'admin') abClose();
+      abBtn.hidden = !r; abClose();
       const title = box.querySelector('.ahead b'); if (title) title.textContent = r === 'modo' ? '🛡️ Console modérateur' : '⚡ Console admin';
       if (!log.children.length) out(r === 'modo' ? '🛡️ Tu es modérateur. Tape /help pour voir tes commandes : muet, avertissements, mode lent, signalements, annonces…' : '⚡ Mode admin actif (compte Ryzer sur ton PC). Tape une lettre pour voir les commandes (Tab ou Entrée pour compléter, ↑ pour l’historique).', 'ok');
       loadNames();
@@ -4937,7 +4950,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261113114445';
+const GAME_BUILD = '20261113120751';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

@@ -2692,7 +2692,7 @@ const TR = window.TR = (() => {
     {id:'can', name:'CantineToken', sym:'CNT', p0:2, vol:.024},
   ];
   const N = 600, STEP = .1, K = STEP / .7;   // un point toutes les 0,1 s, 60 s affichées
-  let cur = 'bad', lev = 1, pos = {}, hist = {}, lastClose = [], vLo = null, vHi = null, vCur = null;
+  let cur = 'bad', lev = 1, pos = {}, hist = {}, lastClose = [], vLo = null, vHi = null, vCur = null, trArm = '';
   const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
   function stepPrice(c, p){
     let r = gauss() * c.vol * Math.sqrt(K);
@@ -2748,6 +2748,16 @@ const TR = window.TR = (() => {
     if (v > S.pts){ toast('Pas assez d’argent', `Tu as ${M(S.pts)}.`, 'var(--red)'); return; }
     // si la mise + 1 % de frais dépasse ton solde, on ajuste la mise au maximum possible
     if (v * 1.01 > S.pts){ v = Math.floor(S.pts / 1.01 * 100) / 100; if (v < 1){ toast('Pas assez d’argent', 'Il te faut au moins 1,01 € (mise + 1 % de frais).', 'var(--red)'); return; } stakeIn.value = String(v); }
+    // grosse mise avec levier : on demande de confirmer (un petit mouvement du cours peut tout faire perdre d'un coup)
+    const key = `${cur}|${dir}|${v}|${lev}`;
+    if (lev >= 5 && v >= Math.max(1e6, S.pts * .25) && trArm !== key){
+      trArm = key; setTimeout(() => { if (trArm === key) trArm = ''; }, 6000);
+      toast('⚠️ Grosse mise avec levier', `Tu mises ${M(v)} en ×${lev} : si le cours bouge de ${fx(100 / lev, 0)} % dans le mauvais sens, tu perds TOUT d’un coup. Reclique dans les 6 secondes pour confirmer.`, 'var(--red)');
+      Bad.say(`⚠️ ${M(v)} en ×${lev}, c’est très risqué : à −${fx(100 / lev, 0)} % tu es liquidé. Reclique sur le même bouton pour confirmer.`, true);
+      tone(220, .15, 'square', .04);
+      return;
+    }
+    trArm = '';
     const fee = v * .01;
     S.pts -= v + fee; S.casBet += v;
     const tp = parseFloat(($('#trTP').value || '').replace(',', '.')), sl = parseFloat(($('#trSL').value || '').replace(',', '.'));
@@ -4950,7 +4960,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261113120751';
+const GAME_BUILD = '20261113123135';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

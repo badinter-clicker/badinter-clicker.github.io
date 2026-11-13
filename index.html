@@ -1275,7 +1275,7 @@ Ce que contient le jeu :
 - Règles anti-abus du casino (pour tous les jeux) : jusqu'à la « mise normale » (la plus grande somme entre 1 h de revenus, 3 % de l'argent du joueur et 100 000 €) le gain est complet ; au-delà le gain est réduit (mise ×4 → gain divisé par 2, mise ×100 → gain divisé par 10). Pas de mise maximum ni de plafond. Même avec une mise énorme, le bonus garde au moins 20 % (au Gratte-ciel, le 25e étage vaut toujours au moins ×10,8). La chance (fer à cheval, trèfle, assurance, gains boostés) compte moins quand la mise dépasse 30 min de revenus. Au Mines, le détecteur de bombe ajuste les multiplicateurs. Avec 1 seule bombe, le détecteur n'est pas utilisé (il la trouverait et il n'y aurait plus de risque, donc plus de gain : seulement ×0,97).
 - BadCoin : on parie que la cote d'une crypto fictive (BadCoin, LycéeCoin, CantineToken) monte ou descend, avec un levier jusqu'à ×25, encaissement auto (take profit) et coupure auto (stop loss). Frais 1 %. Liquidation si la perte atteint la mise. La courbe est verte si le joueur gagne, rouge s'il perd. Le cours est aléatoire : personne ne peut prévoir.
 - Mini-jeux d'adresse qui rapportent sans risque : Badi'Tour (empiler des étages), Pluie de billets, Réflexe du croupier.
-- Boutique de boosts (onglet de Mon casino) : Trèfle à 4 feuilles (3 min, 30 % de chances que la mise soit rendue en cas de perte), Gains boostés (+50 % sur les gains, 2 min), Assurance (moitié de la perte rendue, 2 min), Rumeur sur le BadCoin (le cours tend à monter 45 s), Clics turbo (×5, 1 min), Revenus ×3 (2 min), Aimant à jetons dorés, Détecteur de mines, Ticket de roue. Le Fer à cheval est permanent : +2 % de chances par niveau (max 10) que la mise soit rendue en cas de perte. Les prix augmentent avec la richesse du joueur. Les investissements (revenus automatiques) sont dans l'onglet « Revenus auto ».
+- Boutique de boosts (onglet de Mon casino) : Trèfle à 4 feuilles (3 min, 30 % de chances que la mise soit rendue en cas de perte), Gains boostés (+50 % sur les gains, 2 min), Assurance (moitié de la perte rendue, 2 min), Rumeur sur le BadCoin (pendant 30 s le cours a un peu plus de chances de monter, sans garantie), Clics turbo (×5, 1 min), Revenus ×3 (2 min), Aimant à jetons dorés, Détecteur de mines, Ticket de roue. Le Fer à cheval est permanent : +2 % de chances par niveau (max 10) que la mise soit rendue en cas de perte. Les prix augmentent avec la richesse du joueur. Les investissements (revenus automatiques) sont dans l'onglet « Revenus auto ».
 - Livret Badinter (onglet « Livret ») : on y dépose de l'argent qui ne peut pas être perdu au casino. Toutes les 10 minutes il rapporte des intérêts : 1 % au début, +0,25 % par tranche de 10 min sans retrait, jusqu'à 3 %. Retirer remet le taux à 1 %. Les intérêts sont calculés sur le plus petit montant des 10 dernières minutes. Il rapporte aussi jeu fermé (6 h max). La franchise vide le livret. Pas de plafond, mais plus le livret est gros, plus son taux baisse : taux complet jusqu'à 2 h de revenus du joueur (1 M€ minimum), puis il baisse (livret ×4 → taux divisé par 2, ×100 → divisé par 10).
 - Bonus : roue de la fortune gratuite toutes les 4 h, aide de la banque sous 100 €, statut VIP selon le total misé (+5 % de revenus par niveau).
 - Anti-autoclicker : plus de 16 clics/s, ou 20 clics au même rythme à 2 ms près, bloquent les clics (15 s, 30 s, 1 min… 5 min) et annulent leurs gains.
@@ -1658,7 +1658,7 @@ const BOOSTS = [
   {id:'clover', icon:'🍀', name:'Trèfle à 4 feuilles', desc:'Pendant 3 min : quand tu perds au casino, 30 % de chances que ta mise te soit rendue.', dur:180, mult:4},
   {id:'gains', icon:'💰', name:'Gains boostés', desc:'Pendant 2 min : tout ce que tu gagnes au casino est augmenté de 50 %.', dur:120, mult:6},
   {id:'shield', icon:'🛡️', name:'Assurance', desc:'Pendant 2 min : quand tu perds au casino, la moitié de ta mise t’est rendue.', dur:120, mult:5},
-  {id:'rumor', icon:'📈', name:'Rumeur sur le BadCoin', desc:'Pendant 45 s : le cours du BadCoin a tendance à monter. Parie sur la hausse !', dur:45, mult:5},
+  {id:'rumor', icon:'📈', name:'Rumeur sur le BadCoin', desc:'Pendant 30 s : le BadCoin a un peu plus de chances de monter. Ce n’est qu’une rumeur : rien n’est garanti !', dur:30, mult:15},
   {id:'turbo', icon:'⚡', name:'Clics turbo', desc:'Pendant 1 min : chaque clic sur le casino rapporte 5 fois plus.', dur:60, mult:2},
   {id:'prod', icon:'🏭', name:'Revenus ×3', desc:'Pendant 2 min : tes revenus automatiques sont triplés.', dur:120, mult:3},
   {id:'magnet', icon:'🧲', name:'Aimant à jetons dorés', desc:'Fait apparaître un jeton doré dans les 5 secondes.', dur:0, mult:3},
@@ -1689,7 +1689,7 @@ function buyBoost(b){
   [523, 659, 880].forEach((f, i) => tone(f, .09, 'triangle', .05, i * .06));
   toast(`${b.icon} ${b.name}`, b.dur ? `Actif pendant ${mmss((S.boosts[b.id] - Date.now()) / 1000)}.` : 'C’est fait !', 'var(--green)');
   if (b.id === 'clover') Bad.say('Trèfle activé 🍀 Tes pertes ont une chance d’être remboursées pendant 3 minutes.', true);
-  if (b.id === 'rumor') Bad.say('Psst… une rumeur dit que le BadCoin va grimper 📈 Va vite parier sur la hausse !', true);
+  if (b.id === 'rumor') Bad.say('Psst… une rumeur dit que le BadCoin pourrait grimper 📈 Mais ce n’est qu’une rumeur : attention au levier !', true);
   updateShop(); renderBoostBar();
 }
 function buyLuck(){
@@ -2652,7 +2652,7 @@ const TR = window.TR = (() => {
     let r = gauss() * c.vol * Math.sqrt(K);
     if (Math.random() < .012 * K) r += (Math.random() < .5 ? -1 : 1) * c.vol * rand(4, 9);
     r += (Math.log(c.p0) - Math.log(p)) * .002 * K;
-    if (c.id === 'bad' && boostOn('rumor')) r += .0007;
+    if (c.id === 'bad' && boostOn('rumor')) r += .00006;   // nerf 13/11 : petite tendance, pas garantie (avant .0007 = +31 % sûr)
     return Math.max(c.p0 * .01, p * Math.exp(r));
   }
   function init(saved){
@@ -4704,7 +4704,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261113103803';
+const GAME_BUILD = '20261113104924';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

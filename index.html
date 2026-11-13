@@ -3219,6 +3219,7 @@ const LB = (() => {
     },
     clearSuspects: () => rest('suspects?hits=gte.0', {method: 'DELETE'}),
     rename: (oldName, nm) => rest('rpc/admin_rename', {method: 'POST', body: JSON.stringify({old_name: oldName, nm})}),
+    tempPass: name => rest('rpc/admin_temp_password', {method: 'POST', body: JSON.stringify({pname: name})}),
     isModo: async () => { if (!uid) return false; const r = await rest('rpc/is_moderator', {method: 'POST', body: '{}'}); return r.ok && r.data === true; },
     setModo: (name, on) => rest('rpc/admin_set_modo', {method: 'POST', body: JSON.stringify({pname: name, on_: on})}),
     modos: async () => {
@@ -3947,6 +3948,7 @@ const ADMIN = (() => {
     '/modo pseudo                     nommer un modérateur',
     '/unmodo pseudo                   lui retirer ce rôle',
     '/modos                           liste des modérateurs',
+    '/mdp pseudo                      mot de passe temporaire pour un joueur qui a oublié le sien',
     '/suspects vider                  effacer la liste',
     'Le bot rend muet 10 min un joueur qui envoie 3 insultes en 10 min (visible dans /logs).',
     '/joueurs                         liste des joueurs',
@@ -3983,6 +3985,13 @@ const ADMIN = (() => {
           const who = t.slice(1).join(' '); if (!who) return out(`Ex : /${cmd} pseudo`, 'err');
           const r = await A.setModo(who, cmd === 'modo');
           return r.ok ? out(cmd === 'modo' ? `🛡️ ${r.data} est maintenant modérateur (muet 30 min max, effacer des messages, voir les suspects). Ses actions apparaissent dans /logs.` : `✅ ${r.data} n’est plus modérateur.`, 'ok') : out('⛔ ' + r.error, 'err');
+        }
+        case 'mdp': case 'motdepasse': {
+          const who = t.slice(1).join(' '); if (!who) return out('Ex : /mdp pseudo   (crée un mot de passe temporaire pour un joueur qui a oublié le sien)', 'err');
+          const r = await A.tempPass(who);
+          if (!r.ok || !r.data) return out('⛔ ' + r.error, 'err');
+          out(`🔑 Nouveau mot de passe temporaire de ${r.data.name} : ${r.data.pw}`, 'ok');
+          return out(`Donne-le-lui en privé. Il se connecte avec le pseudo « ${r.data.login} » et ce mot de passe, puis il le change dans Classement → Ton compte.`);
         }
         case 'modos': { const l = await A.modos(); return l === null ? out('⛔ permission denied', 'err') : out(l.length ? '🛡️ Modérateurs : ' + l.join(' · ') : 'Aucun modérateur pour l’instant.'); }
         case 'items': return out('Boosts : trefle, gains, assurance, turbo, revenus, rumeur (nombre = minutes), aimant, detecteur, roue · fer (niveaux du fer à cheval) · investissements : ' + B.map(b => b.id).join(', '));
@@ -4121,7 +4130,7 @@ const ADMIN = (() => {
     ['mute', 'pseudo [minutes]', 'retirer le chat'], ['unmute', 'pseudo', 'rendre le chat'],
     ['delchat', 'pseudo', 'effacer ses messages'], ['clearchat', '', 'vider tout le chat'],
     ['suspects', '[vider]', 'suspects détectés par le bot'], ['renommer', 'pseudo nouveau', 'changer son pseudo'],
-    ['modo', 'pseudo', 'nommer un modérateur'], ['unmodo', 'pseudo', 'retirer un modérateur'], ['modos', '', 'liste des modérateurs'],
+    ['modo', 'pseudo', 'nommer un modérateur'], ['unmodo', 'pseudo', 'retirer un modérateur'], ['modos', '', 'liste des modérateurs'], ['mdp', 'pseudo', 'mot de passe temporaire'],
     ['joueurs', '', 'liste des joueurs'], ['annonce', 'texte', 'message pour tous'],
     ['event', 'argent|casino|dore valeur minutes', 'événement pour tous'], ['happyhour', '[minutes]', 'revenus ×2 + casino ×2'],
     ['pluie', 'montant', 'argent pour chaque joueur connecté'], ['roue', 'tous', 'recharger la roue de tout le monde'],
@@ -4129,7 +4138,7 @@ const ADMIN = (() => {
     ['logs', '', 'journal de sécurité'], ['lock', '', 'fermer la console'],
     ['items', '', 'liste des objets'], ['help', '', 'toutes les commandes'],
   ];
-  const PLAYER_CMDS = ['give', 'take', 'set', 'doubler', 'multiplier', 'vider', 'reset', 'livret', 'etoiles', 'fer', 'item', 'boost', 'info', 'ban', 'unban', 'banip', 'unbanip', 'mute', 'unmute', 'delchat', 'renommer', 'modo', 'unmodo'];
+  const PLAYER_CMDS = ['give', 'take', 'set', 'doubler', 'multiplier', 'vider', 'reset', 'livret', 'etoiles', 'fer', 'item', 'boost', 'info', 'ban', 'unban', 'banip', 'unbanip', 'mute', 'unmute', 'delchat', 'renommer', 'modo', 'unmodo', 'mdp'];
   // le modérateur : pouvoirs limités (vérifiés aussi par le serveur)
   const MODO_OK = ['help', 'aide', 'mute', 'unmute', 'delchat', 'suspects', 'joueurs', 'info', 'lock', 'fermer', 'verrouiller'];
   const MODO_HELP = [
@@ -4500,7 +4509,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261112195452';
+const GAME_BUILD = '20261113091328';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;

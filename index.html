@@ -873,7 +873,7 @@ textarea{width:100%;min-height:70px;font:12px ui-monospace,monospace;background:
             <button class="btn" id="accGo" type="submit">Se connecter</button>
             <p class="small" id="accMsg"></p>
           </form>
-          <p class="small">⚠️ Note bien ton mot de passe : on ne peut pas le récupérer s’il est oublié.</p>
+          <p class="small">⚠️ Note bien ton mot de passe. Mot de passe oublié ? Demande à Ryzer (l’admin) : il peut te donner un mot de passe temporaire, que tu changes ensuite dans Classement → Ton compte.</p>
         </div>
         <div id="accBlocked" hidden>
           <p><b style="color:var(--red)">🔒 Ce compte est verrouillé sur un autre ordinateur.</b></p>
@@ -3635,7 +3635,7 @@ const LB = (() => {
         toast('Compte créé 🎉', `Bienvenue ${name} ! Ta partie est sauvegardée en ligne automatiquement.`, 'var(--green)');
       } else {
         const r = await api('/auth/v1/token?grant_type=password', {method: 'POST', headers: H(), body: JSON.stringify({email: s + DOMAIN, password: pass})});
-        if (!r.ok){ accMsg(r.status === 0 ? whyText() : 'Pseudo ou mot de passe incorrect.', true); return; }
+        if (!r.ok){ accMsg(r.status === 0 ? whyText() : 'Pseudo ou mot de passe incorrect. Si tu as changé de pseudo, connecte-toi avec le NOUVEAU. Mot de passe oublié ? Demande un mot de passe temporaire à Ryzer (l’admin).', true); return; }
         storeSess(r.data);
         const okLogin = await onLogin(r.data.user, false);
         $('#accPass').value = '';
@@ -5215,7 +5215,7 @@ syncSound(); updateBuildings(true); updateUpgrades(); ui();
 LB.init();
 AVATAR.renderHeader();
 // Détection de nouvelle version : le site vérifie s'il a été mis à jour et propose de recharger
-const GAME_BUILD = '20261113152606';
+const GAME_BUILD = '20261113153021';
 (() => {
   if (GAME_BUILD === '__BUILD__' || location.protocol === 'file:') return;
   let shown = false;
